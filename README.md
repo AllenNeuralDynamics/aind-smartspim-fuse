@@ -1,3 +1,3 @@
-# aind-capsule-template
+# aind-smartspim-fuse
 
-Basic structure of a capsule to be customized as needed.
+Repository that hosts the fusing step applied to the smartspim datasets. The current option at the moment is fusion with TeraStitcher.
