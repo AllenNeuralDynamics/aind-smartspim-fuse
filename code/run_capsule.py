@@ -53,6 +53,7 @@ def run():
         )
 
     fuse.terasticher(
+        data_folder=data_folder,
         transforms_xml_path=Path(results_folder).joinpath("volume_alignments.xml"),
         output_fused_path=Path(results_folder),
         intermediate_fused_folder=Path(scratch_folder),

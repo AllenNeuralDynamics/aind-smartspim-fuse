@@ -1,20 +1,25 @@
+"""
+Module to store utility functions
+"""
+
 import json
+import logging
 import os
 import re
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import List, Optional
 
 import xmltodict
+import yaml
 from aind_data_schema import DerivedDataDescription, Processing
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.data_description import (DataLevel, Funding, Institution,
-                                               Modality, Platform,
-                                               RawDataDescription)
+from aind_data_schema.data_description import (Funding, Institution, Modality,
+                                               Platform)
 
-from .types import PathLike
+from ._shared.types import PathLike
 
 
 def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
@@ -235,9 +240,11 @@ def wavelength_to_hex(wavelength: int) -> int:
 
 def generate_new_channel_alignment_xml(
     informative_channel_xml,
-    channel_name: str,
-    regex_expr: str,
+    channel_path: PathLike,
+    metadata_folder: PathLike,
+    teras_mdata_bin: PathLike,
     encoding: Optional[str] = "utf-8",
+    channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$",
 ) -> str:
     """
     Generates an XML with the displacements
@@ -250,12 +257,18 @@ def generate_new_channel_alignment_xml(
         Path where the informative channel xml
         is located
 
-    channel_name: str
-        String with the channel name
+    channel_path: PathLike
+        Path where the image dataset
+        is located
 
-    regex_expr: str
-        Regular expression to identify
-        the name of the channel
+    metadata_folder: PathLike
+        Path where the new alignment will
+        be placed
+
+    teras_mdata_bin: PathLike
+        Path where the terastitcher binary
+        was placed after importing the
+        dataset
 
     encoding: str
         Encoding of the XML file.
@@ -266,46 +279,41 @@ def generate_new_channel_alignment_xml(
     str
         Path where the xml is stored
     """
-    informative_channel_name = re.search(regex_expr, informative_channel_xml)
-    modified_mergexml_path = None
 
-    if informative_channel_name:
-        # Getting the channel name
-        informative_channel_name = informative_channel_name.group()
+    with open(informative_channel_xml, "r", encoding=encoding) as xml_reader:
+        xml_file = xml_reader.read()
 
-        with open(informative_channel_xml, "r", encoding=encoding) as xml_reader:
-            xml_file = xml_reader.read()
+    xml_dict = xmltodict.parse(xml_file)
 
-        xml_dict = xmltodict.parse(xml_file)
+    new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = str(
+        channel_path
+    )
+    new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = str(
+        teras_mdata_bin
+    )
 
-        new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"].replace(
-            informative_channel_name, channel_name
-        )
+    xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = new_stacks_folder
+    xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = new_bin_folder
 
-        new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"].replace(
-            informative_channel_name, channel_name
-        )
+    new_channel_name = re.search(channel_regex, channel_path).group()
 
-        xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = new_stacks_folder
-        xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = new_bin_folder
+    modified_mergexml_path = str(
+        metadata_folder.joinpath(f"xml_merging_{new_channel_name}")
+    )
 
-        modified_mergexml_path = str(informative_channel_xml).replace(
-            informative_channel_name, channel_name
-        )
+    data_to_write = xmltodict.unparse(xml_dict, pretty=True)
 
-        data_to_write = xmltodict.unparse(xml_dict, pretty=True)
+    end_xml_header = "?>"
+    len_end_xml_header = len(end_xml_header)
+    xml_end_header = data_to_write.find(end_xml_header)
 
-        end_xml_header = "?>"
-        len_end_xml_header = len(end_xml_header)
-        xml_end_header = data_to_write.find(end_xml_header)
+    new_data_to_write = data_to_write[: xml_end_header + len_end_xml_header]
+    # Adding terastitcher doctype
+    new_data_to_write += '\n<!DOCTYPE TeraStitcher SYSTEM "TeraStitcher.DTD">'
+    new_data_to_write += data_to_write[xml_end_header + len_end_xml_header :]
 
-        new_data_to_write = data_to_write[: xml_end_header + len_end_xml_header]
-        # Adding terastitcher doctype
-        new_data_to_write += '\n<!DOCTYPE TeraStitcher SYSTEM "TeraStitcher.DTD">'
-        new_data_to_write += data_to_write[xml_end_header + len_end_xml_header :]
-
-        with open(modified_mergexml_path, "w", encoding=encoding) as xml_writer:
-            xml_writer.write(new_data_to_write)
+    with open(modified_mergexml_path, "w", encoding=encoding) as xml_writer:
+        xml_writer.write(new_data_to_write)
 
     return modified_mergexml_path
 
@@ -449,3 +457,191 @@ def copy_available_metadata(
             copy_file(metadata_filename, output_filename)
 
     return found_metadata
+
+
+def find_smartspim_channels(
+    path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"
+):
+    """
+    Find image channels of a dataset using a regular expression.
+
+    Parameters
+    ------------------------
+
+    path:PathLike
+        Dataset path
+
+    channel_regex:str
+        Regular expression for filtering folders in dataset path.
+
+
+    Returns
+    ------------------------
+
+    List[str]:
+        List with the image channels. Empty list if
+        it does not find any channels with the
+        given regular expression.
+
+    """
+    return [path for path in os.listdir(path) if re.search(channel_regex, path)]
+
+
+def copy_available_metadata(
+    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
+) -> List[PathLike]:
+    """
+    Copies all the valid metadata from the aind-data-schema
+    repository that exists in a given path.
+
+    Parameters
+    -----------
+    input_path: PathLike
+        Path where the metadata is located
+
+    output_path: PathLike
+        Path where we will copy the found
+        metadata
+
+    ignore_files: List[str]
+        List with the filenames of the metadata
+        that we need to ignore from the aind-data-schema
+
+    Returns
+    --------
+    List[PathLike]
+        List with the metadata files that
+        were copied
+    """
+
+    # We get all the valid filenames from the aind core model
+    metadata_to_find = [
+        cls.default_filename() for cls in AindCoreModel.__subclasses__()
+    ]
+
+    # Making sure the paths are pathlib objects
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+
+    found_metadata = []
+
+    for metadata_filename in metadata_to_find:
+        metadata_filename = input_path.joinpath(metadata_filename)
+
+        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
+            found_metadata.append(metadata_filename)
+
+            # Copying file to output path
+            output_filename = output_path.joinpath(metadata_filename.name)
+            copy_file(metadata_filename, output_filename)
+
+    return found_metadata
+
+
+def create_logger(output_log_path: PathLike) -> logging.Logger:
+    """
+    Creates a logger that generates
+    output logs to a specific path.
+
+    Parameters
+    ------------
+    output_log_path: PathLike
+        Path where the log is going
+        to be stored
+
+    Returns
+    -----------
+    logging.Logger
+        Created logger pointing to
+        the file path.
+    """
+    CURR_DATE_TIME = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    LOGS_FILE = f"{output_log_path}/fusion_log_{CURR_DATE_TIME}.log"
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s : %(message)s",
+        datefmt="%Y-%m-%d %H:%M",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(LOGS_FILE, "a"),
+        ],
+        force=True,
+    )
+
+    logging.disable("DEBUG")
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    return logger
+
+
+def create_fusion_folder_structure(
+    output_fused_path: PathLike,
+    intermediate_fused_folder: PathLike,
+) -> dict:
+    """
+    Creates the fusion folder structure.
+
+    Parameters
+    -----------
+    output_fused_path: PathLike
+        Path where the OMEZarr and metadata will
+        live after fusion
+
+    intermediate_fused_folder: PathLike
+        Path where the intermediate files
+        will live. These will not be in the final
+        folder structure. e.g., 3D fused chunks
+        from TeraStitcher
+
+    Returns
+    -----------
+    Tuple
+        Tuple with the paths pointing
+        to the final fusion folder, metadata folder
+        and terastitcher intermediate fusion folder
+    """
+
+    # Creating folders if necessary
+    if not output_fused_path.exists():
+        logging.info(f"Path {output_fused_path} does not exists. We're creating one.")
+        create_folder(dest_dir=output_fused_path)
+
+    if not intermediate_fused_folder.exists():
+        logging.info(
+            f"Path {intermediate_fused_folder} does not exists. We're creating one."
+        )
+        create_folder(dest_dir=intermediate_fused_folder)
+
+    fusion_folder = output_fused_path.joinpath("OMEZarr")
+    teras_fusion_folder = intermediate_fused_folder.joinpath("teras_stitched")
+    metadata_folder = output_fused_path.joinpath("metadata/fusion")
+
+    create_folder(fusion_folder)
+    create_folder(metadata_folder)
+    create_folder(teras_fusion_folder)
+
+    return fusion_folder, metadata_folder, teras_fusion_folder
+
+
+def get_default_config(filename: str = "default_config.yaml") -> None:
+    """
+    Gets the default configuration from a YAML file
+
+    Parameters
+    --------------
+    filename: str
+        Path where the YAML is located
+
+    """
+    filename = Path(os.path.dirname(__file__)).joinpath(filename)
+
+    config = None
+    try:
+        with open(filename, "r") as stream:
+            config = yaml.safe_load(stream)
+    except Exception as error:
+        raise error
+
+    return config
