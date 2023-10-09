@@ -74,6 +74,106 @@ def terastitcher_import_cmd(
     return cmd, import_params["mdata_bin"]
 
 
+def build_parallel_command(params: dict, tool: PathLike) -> str:
+    """
+    Builds a mpi command based on a provided configuration dictionary.
+
+    Parameters
+    ------------------------
+    params: dict
+        Configuration dictionary used to build
+        the mpi command depending on the platform.
+
+    tool: PathLike
+        Parallel tool to be used in the command.
+        (Parastitcher or Paraconverter)
+
+    Returns
+    ------------------------
+    str:
+        Command that will be executed for terastitcher.
+
+    """
+
+    cpu_params = params["cpu_params"]
+
+    # mpiexec for windows, mpirun for linux or macs OS
+    mpi_command = "mpirun -np"
+    additional_params = ""
+    hostfile = ""
+    n_procs = cpu_params["number_processes"]
+
+    # Additional params provided in the configuration
+    if len(cpu_params["additional_params"]):
+        additional_params = utils.helper_additional_params_command(
+            cpu_params["additional_params"]
+        )
+
+    hostfile = f"--hostfile {cpu_params['hostfile']}"
+
+    cmd = f"{mpi_command} {n_procs} {hostfile} {additional_params}"
+    cmd += f"python {tool}"
+    return cmd
+
+
+def terastitcher_merge_cmd(
+    xml_output_path: PathLike,
+    merge_params: dict,
+    channel_name: str,
+    paraconverter_path: PathLike,
+) -> str:
+    """
+    Builds the terastitcher's multivolume merge command based
+    on a provided configuration dictionary. It outputs a json
+    file in the xmls folder of the output directory with all
+    the parameters used in this step. It is important to
+    mention that the channels are fuse separately.
+
+    Parameters
+    ------------------------
+    xml_output_path: PathLike
+        Path where the displacements XML
+        is located
+
+    merge_params: dict
+        Configuration dictionary used to build the
+        terastitcher's multivolume merge command.
+
+    channel_name: str
+        string with the channel to generate the
+        command
+
+    paraconverter_path: PathLike
+        Path where para converter is located
+
+    Returns
+    ------------------------
+    str:
+        Command that will be executed for terastitcher.
+
+    """
+
+    paraconverter_path = str(paraconverter_path)
+    parallel_command = build_parallel_command(merge_params, "merge", paraconverter_path)
+
+    parameters = utils.helper_build_param_value_command(merge_params)
+
+    additional_params = ""
+    if len(merge_params["additional_params"]):
+        additional_params = utils.helper_additional_params_command(
+            merge_params["additional_params"]
+        )
+
+    cmd = f"{parallel_command} {parameters} {additional_params}"  # > {self.xmls_path}/step6par_{channel}.txt"
+    cmd = cmd.replace("--s=", "-s=")
+    cmd = cmd.replace("--d=", "-d=")
+
+    output_json = xml_output_path.joinpath(f"merge_volume_params_{channel_name}.json")
+    utils.save_dict_as_json(f"{output_json}", merge_params, True)
+
+    return cmd
+
+
 def terasticher(
     data_folder: PathLike,
     transforms_xml_path: PathLike,
@@ -126,6 +226,12 @@ def terasticher(
     transforms_xml_path = Path(transforms_xml_path)
     output_fused_path = Path(output_fused_path)
     intermediate_fused_folder = Path(intermediate_fused_folder)
+    parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
+        "Parastitcher.py"
+    )
+    paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath(
+        "paraconverter.py"
+    )
 
     if not output_fused_path.exists():
         raise FileNotFoundError(f"XML path {transforms_xml_path} does not exist")
@@ -182,7 +288,7 @@ def terasticher(
         ],
     )
 
-    logger.info(f"Starting fusion for channel {channel_name}")
+    logger.info(f"Starting importing for channel {channel_name}")
 
     teras_import_channel_cmd, teras_import_binary = terastitcher_import_cmd(
         input_path=transforms_xml_path,
@@ -190,7 +296,7 @@ def terasticher(
         import_params=smartspim_config["import_data"],
         channel_name=channel_name,
     )
-    logger.info(f"Executing TeraStitcher command: {terastitcher_import_cmd}")
+    logger.info(f"Executing TeraStitcher command: {teras_import_channel_cmd}")
 
     # Importing channel to generate binary file
     import_start_time = datetime.now()
@@ -223,3 +329,18 @@ def terasticher(
     }
 
     # Merging dataset
+    logger.info(f"Starting fusion for channel {channel_name}")
+
+    teras_merge_channel_cmd = terastitcher_merge_cmd(
+        xml_output_path=metadata_folder,
+        merge_params=terastitcher_merge_config,
+        channel_name=channel_name,
+        paraconverter_path=paraconverter_path,
+    )
+
+    logger.info(f"Executing TeraStitcher command: {teras_merge_channel_cmd}")
+
+    # Merge channel with TeraStitcher
+    merge_start_time = datetime.now()
+    utils.execute_command(command=teras_merge_channel_cmd, logger=logger, verbose=True)
+    merge_end_time = datetime.now()
