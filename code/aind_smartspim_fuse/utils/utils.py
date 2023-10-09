@@ -19,7 +19,7 @@ from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import (Funding, Institution, Modality,
                                                Platform)
 
-from ._shared.types import PathLike
+from .._shared.types import PathLike
 
 
 def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
@@ -51,6 +51,33 @@ def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
         except OSError as e:
             if e.errno != os.errno.EEXIST:
                 raise
+
+
+def read_json_as_dict(filepath: str) -> dict:
+    """
+    Reads a json as dictionary.
+
+    Parameters
+    ------------------------
+
+    filepath: PathLike
+        Path where the json is located.
+
+    Returns
+    ------------------------
+
+    dict:
+        Dictionary with the data the json has.
+
+    """
+
+    dictionary = {}
+
+    if os.path.exists(filepath):
+        with open(filepath) as json_file:
+            dictionary = json.load(json_file)
+
+    return dictionary
 
 
 def copy_file(input_filename: PathLike, output_filename: PathLike):
@@ -102,11 +129,35 @@ def save_string_to_txt(txt: str, filepath: PathLike, mode="w") -> None:
         file.write(txt + "\n")
 
 
-def execute_command_helper(
-    command: str,
-    print_command: bool = False,
-    stdout_log_file: Optional[PathLike] = None,
-) -> None:
+def execute_command(
+    command: str, logger: logging.Logger, verbose: Optional[bool] = False
+):
+    """
+    Execute a shell command with a given configuration.
+
+    Parameters
+    ------------------------
+    command: str
+        Command that we want to execute.
+
+    logger: logging.Logger
+        Logger object
+
+    verbose: Optional[bool]
+        Prints the command in the console
+
+    Raises
+    ------------------------
+    CalledProcessError:
+        if the command could not be executed (Returned non-zero status).
+
+    """
+    for out in execute_command_helper(command, verbose):
+        if len(out):
+            logger.info(out)
+
+
+def execute_command_helper(command: str, print_command: bool = False) -> None:
     """
     Execute a shell command.
 
@@ -128,9 +179,6 @@ def execute_command_helper(
 
     if print_command:
         print(command)
-
-    if stdout_log_file and len(str(stdout_log_file)):
-        save_string_to_txt("$ " + command, stdout_log_file, "a")
 
     popen = subprocess.Popen(
         command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
@@ -577,8 +625,7 @@ def create_logger(output_log_path: PathLike) -> logging.Logger:
 
 
 def create_fusion_folder_structure(
-    output_fused_path: PathLike,
-    intermediate_fused_folder: PathLike,
+    output_fused_path: PathLike, intermediate_fused_folder: PathLike, channel_name: str
 ) -> dict:
     """
     Creates the fusion folder structure.
@@ -594,6 +641,9 @@ def create_fusion_folder_structure(
         will live. These will not be in the final
         folder structure. e.g., 3D fused chunks
         from TeraStitcher
+
+    channel_name: str
+        SmartSPIM channel name
 
     Returns
     -----------
@@ -615,33 +665,11 @@ def create_fusion_folder_structure(
         create_folder(dest_dir=intermediate_fused_folder)
 
     fusion_folder = output_fused_path.joinpath("OMEZarr")
+    metadata_folder = output_fused_path.joinpath(f"metadata/fusion_{channel_name}")
     teras_fusion_folder = intermediate_fused_folder.joinpath("teras_stitched")
-    metadata_folder = output_fused_path.joinpath("metadata/fusion")
 
     create_folder(fusion_folder)
     create_folder(metadata_folder)
     create_folder(teras_fusion_folder)
 
     return fusion_folder, metadata_folder, teras_fusion_folder
-
-
-def get_default_config(filename: str = "default_config.yaml") -> None:
-    """
-    Gets the default configuration from a YAML file
-
-    Parameters
-    --------------
-    filename: str
-        Path where the YAML is located
-
-    """
-    filename = Path(os.path.dirname(__file__)).joinpath(filename)
-
-    config = None
-    try:
-        with open(filename, "r") as stream:
-            config = yaml.safe_load(stream)
-    except Exception as error:
-        raise error
-
-    return config

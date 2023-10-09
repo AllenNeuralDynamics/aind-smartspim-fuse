@@ -1,9 +1,122 @@
 """ top level run script """
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from aind_smartspim_fuse import fuse
+from aind_smartspim_fuse.params import get_yaml
+from aind_smartspim_fuse.utils import utils
+
+
+def get_data_config(
+    data_folder: str,
+    processing_manifest_path: str = "processing_manifest.json",
+    data_description_path: str = "data_description.json",
+) -> Tuple:
+    """
+    Returns the first smartspim dataset found
+    in the data folder
+
+    Parameters
+    -----------
+    data_folder: str
+        Path to the folder that contains the data
+
+    processing_manifest_path: str
+        Path for the processing manifest
+
+    data_description_path: str
+        Path for the data description
+
+    Returns
+    -----------
+    Tuple[Dict, str]
+        Dict: Empty dictionary if the path does not exist,
+        dictionary with the data otherwise.
+
+        Str: Empty string if the processing manifest
+        was not found
+    """
+
+    # Returning first smartspim dataset found
+    # Doing this because of Code Ocean, ideally we would have
+    # a single dataset in the pipeline
+
+    derivatives_dict = utils.read_json_as_dict(
+        f"{data_folder}/{processing_manifest_path}"
+    )
+    data_description_dict = utils.read_json_as_dict(
+        f"{data_folder}/{data_description_path}"
+    )
+
+    smartspim_dataset = data_description_dict["name"]
+
+    return derivatives_dict, smartspim_dataset
+
+
+def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict):
+    """
+    Sets up smartspim stitching parameters that come from the
+    pipeline configuration
+
+    Parameters
+    -----------
+    smartspim_dataset: str
+        String with the smartspim dataset name
+
+    pipeline_config: dict
+        Dictionary that comes with the parameters
+        for the pipeline described in the
+        processing_manifest.json
+
+    default_config: dict
+        Dictionary that has all the default
+        parameters to execute this capsule with
+        smartspim data
+
+    Returns
+    -----------
+    Dict
+        Dictionary with the combined parameters
+    """
+
+    def get_resolution_from_array(resolutions: list, axis_name: str) -> float:
+        """
+        Gets the resolution from a list of dict.
+        This is based on the processing manifest json.
+
+        Parameters
+        resolutions: List[dict]
+            List with dictionaries that have
+            the resolution and axis name
+        """
+
+        axis_size = None
+        axis_name = axis_name.casefold()
+
+        for resolution in resolutions:
+            if axis_name == resolution["axis_name"].casefold():
+                axis_size = resolution["resolution"]
+                break
+
+        return axis_size
+
+    default_config["import_data"]["vxl1"] = get_resolution_from_array(
+        resolutions=pipeline_config["stitching"]["resolution"], axis_name="x"
+    )
+    default_config["import_data"]["vxl2"] = get_resolution_from_array(
+        resolutions=pipeline_config["stitching"]["resolution"], axis_name="y"
+    )
+    default_config["import_data"]["vxl3"] = get_resolution_from_array(
+        resolutions=pipeline_config["stitching"]["resolution"], axis_name="z"
+    )
+
+    dict_cpus = pipeline_config["stitching"].get("cpus")
+    cpus = 16 if dict_cpus is None else dict_cpus
+
+    default_config["merge"]["cpu_params"]["number_processes"] = cpus
+
+    return default_config
 
 
 def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
@@ -35,6 +148,8 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
 
 def run():
     """Function to start image fusion"""
+
+    # Absolute paths of common Code Ocean folders
     data_folder = os.path.abspath("../data")
     results_folder = os.path.abspath("../results")
     scratch_folder = os.path.abspath("../scratch")
@@ -52,11 +167,25 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
+    pipeline_config, smartspim_dataset_name = get_data_config(data_folder=data_folder)
+    pipeline_config = pipeline_config["pipeline_processing"]
+
+    default_config = get_yaml(
+        os.path.abspath("./aind_smartspim_fuse/params/default_terastitcher_config.yaml")
+    )
+
+    smartspim_config = set_up_pipeline_parameters(
+        pipeline_config=pipeline_config, default_config=default_config
+    )
+
+    smartspim_config["name"] = smartspim_dataset_name
+
     fuse.terasticher(
         data_folder=data_folder,
         transforms_xml_path=Path(results_folder).joinpath("volume_alignments.xml"),
         output_fused_path=Path(results_folder),
         intermediate_fused_folder=Path(scratch_folder),
+        smartspim_config=smartspim_config,
     )
 
 
