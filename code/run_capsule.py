@@ -180,7 +180,7 @@ def run():
 
     smartspim_config["name"] = smartspim_dataset_name
 
-    fuse.terasticher(
+    fuse.main(
         data_folder=data_folder,
         transforms_xml_path=Path(results_folder).joinpath("volume_alignments.xml"),
         output_fused_path=Path(results_folder),

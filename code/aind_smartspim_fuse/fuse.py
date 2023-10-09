@@ -3,6 +3,7 @@ This file controls the fusion step
 for a SmartSPIM dataset
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -175,11 +176,12 @@ def terastitcher_merge_cmd(
 
 
 def terasticher(
-    data_folder: PathLike,
     transforms_xml_path: PathLike,
-    output_fused_path: PathLike,
-    intermediate_fused_folder: PathLike,
+    metadata_folder: PathLike,
+    teras_fusion_folder: PathLike,
+    channel_name: str,
     smartspim_config: dict,
+    logger: logging.Logger,
     channel_regex: Optional[str] = r"Ex_([0-9]*)_Em_([0-9]*)$",
 ):
     """
@@ -217,75 +219,24 @@ def terasticher(
         Dictionary with the smartspim configuration
         for that dataset
 
+    logger: logging.Logger
+        Logger object
+
     channel_regex: Optional[str]
         Regular expression to identify
         smartspim channels
+
+    Returns
+    ----------
+    str:
+        Path where the fused data was stored
     """
 
-    # Converting to path objects if necessary
-    transforms_xml_path = Path(transforms_xml_path)
-    output_fused_path = Path(output_fused_path)
-    intermediate_fused_folder = Path(intermediate_fused_folder)
     parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
         "Parastitcher.py"
     )
     paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath(
         "paraconverter.py"
-    )
-
-    if not output_fused_path.exists():
-        raise FileNotFoundError(f"XML path {transforms_xml_path} does not exist")
-
-    # Looking for SmartSPIM channels on data folder
-    smartspim_channels = utils.find_smartspim_channels(
-        path=data_folder, channel_regex=channel_regex
-    )
-
-    if not len(smartspim_channels):
-        raise ValueError("No SmartSPIM channels found!")
-
-    # Setting first found channel to reconstruct
-    # This is intented to be compatible with CO pipelines
-    # Therefore the channel must be in the data folder
-    channel_name = smartspim_channels[0]
-
-    # Contains the paths where I'll place the
-    # fused OMEZarr and TeraStitcher metadata
-    # and fusion
-    (
-        fusion_folder,
-        metadata_folder,
-        teras_fusion_folder,
-    ) = utils.create_fusion_folder_structure(
-        output_fused_path=output_fused_path,
-        intermediate_fused_folder=intermediate_fused_folder,
-        channel_name=channel_name,
-    )
-    logger.info(
-        f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
-    )
-
-    # Logger pointing everything to the metadata path
-    logger = utils.create_logger(output_log_path=metadata_folder)
-
-    logger.info(f"Generating derived data description")
-
-    utils.generate_data_description(
-        raw_data_description_path=data_folder.joinpath("data_description.json"),
-        dest_data_description=output_fused_path.joinpath("data_description.json"),
-        process_name="stitched",
-    )
-
-    logger.info("Copying all available raw SmartSPIM metadata")
-
-    # This is the AIND metadata
-    utils.copy_available_metadata(
-        input_path=data_folder,
-        output_path=output_fused_path,
-        ignore_files=[
-            "data_description.json",  # Ignoring data description since we're generating it above
-            "processing.json",  # This is generated with all the steps
-        ],
     )
 
     logger.info(f"Starting importing for channel {channel_name}")
@@ -344,3 +295,121 @@ def terasticher(
     merge_start_time = datetime.now()
     utils.execute_command(command=teras_merge_channel_cmd, logger=logger, verbose=True)
     merge_end_time = datetime.now()
+
+    return teras_fusion_folder
+
+
+def main(
+    data_folder: PathLike,
+    transforms_xml_path: PathLike,
+    output_fused_path: PathLike,
+    intermediate_fused_folder: PathLike,
+    smartspim_config: dict,
+    channel_regex: Optional[str] = r"Ex_([0-9]*)_Em_([0-9]*)$",
+):
+    """
+    This function fuses a SmartSPIM dataset.
+
+    Parameters
+    -----------
+    data_folder: PathLike
+        Path where the image data is located
+
+    transforms_xml_path: PathLike
+        Path where the XML with TeraStitcher
+        format is located.
+
+    output_fused_path: PathLike
+        Path where the OMEZarr and metadata will
+        live after fusion
+
+    intermediate_fused_folder: PathLike
+        Path where the intermediate files
+        will live. These will not be in the final
+        folder structure. e.g., 3D fused chunks
+        from TeraStitcher
+
+    smartspim_config: dict
+        Dictionary with the smartspim configuration
+        for that dataset
+
+    channel_regex: Optional[str]
+        Regular expression to identify
+        smartspim channels
+
+    """
+
+    # Converting to path objects if necessary
+    transforms_xml_path = Path(transforms_xml_path)
+    output_fused_path = Path(output_fused_path)
+    intermediate_fused_folder = Path(intermediate_fused_folder)
+
+    if not output_fused_path.exists():
+        raise FileNotFoundError(f"XML path {transforms_xml_path} does not exist")
+
+    # Looking for SmartSPIM channels on data folder
+    smartspim_channels = utils.find_smartspim_channels(
+        path=data_folder, channel_regex=channel_regex
+    )
+
+    if not len(smartspim_channels):
+        raise ValueError("No SmartSPIM channels found!")
+
+    # Setting first found channel to reconstruct
+    # This is intented to be compatible with CO pipelines
+    # Therefore the channel must be in the data folder
+    channel_name = smartspim_channels[0]
+
+    # Contains the paths where I'll place the
+    # fused OMEZarr and TeraStitcher metadata
+    # and fusion
+    (
+        fusion_folder,
+        metadata_folder,
+        teras_fusion_folder,
+    ) = utils.create_fusion_folder_structure(
+        output_fused_path=output_fused_path,
+        intermediate_fused_folder=intermediate_fused_folder,
+        channel_name=channel_name,
+    )
+
+    # Logger pointing everything to the metadata path
+    logger = utils.create_logger(output_log_path=metadata_folder)
+
+    logger.info(
+        f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
+    )
+
+    logger.info(f"Generating derived data description")
+
+    utils.generate_data_description(
+        raw_data_description_path=data_folder.joinpath("data_description.json"),
+        dest_data_description=output_fused_path.joinpath("data_description.json"),
+        process_name="stitched",
+    )
+
+    logger.info("Copying all available raw SmartSPIM metadata")
+
+    # This is the AIND metadata
+    utils.copy_available_metadata(
+        input_path=data_folder,
+        output_path=output_fused_path,
+        ignore_files=[
+            "data_description.json",  # Ignoring data description since we're generating it above
+            "processing.json",  # This is generated with all the steps
+        ],
+    )
+
+    terastitcher_fused_path = terasticher(
+        transforms_xml_path=transforms_xml_path,
+        metadata_folder=metadata_folder,
+        teras_fusion_folder=teras_fusion_folder,
+        channel_name=channel_name,
+        smartspim_config=smartspim_config,
+        logger=logger,
+        channel_regex=channel_regex,
+    )
+
+    logger.info(f"Fused dataset with TeraStitcher in path: {terastitcher_fused_path}")
+
+    logger.info(f"Starting OMEZarr conversion in path: {output_fused_path}")
