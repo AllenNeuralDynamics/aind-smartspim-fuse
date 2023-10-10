@@ -30,17 +30,18 @@ def terastitcher_import_cmd(
 
     Parameters
     ------------------------
+    input_path: PathLike
+        Path where the data is located
+
+    xml_output_path: PathLike
+        Path where we will save the metadata
+
     import_params: dict
         Configuration dictionary used to build the
         terastitcher's import command.
 
     channel_name:str
         Name of the dataset channel that will be imported
-
-    fuse_path:PathLike
-        Path where the fused xml files will be stored.
-        This will only be used in multichannel fusing.
-        Default None
 
     Returns
     ------------------------
@@ -177,7 +178,8 @@ def terastitcher_merge_cmd(
     return cmd
 
 
-def terasticher(
+def terasticher_fusion(
+    data_folder: PathLike,
     transforms_xml_path: PathLike,
     metadata_folder: PathLike,
     teras_fusion_folder: PathLike,
@@ -185,6 +187,9 @@ def terasticher(
     smartspim_config: dict,
     logger: logging.Logger,
     channel_regex: Optional[str] = r"Ex_([0-9]*)_Em_([0-9]*)$",
+    code_url: Optional[
+        str
+    ] = "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
 ):
     """
     This function fuses a SmartSPIM dataset.
@@ -196,7 +201,6 @@ def terasticher(
     2. Fuse the dataset in chunks using TeraStitcher.
     3. Get the fused chunks and generate the OMEZarr
     volume.
-
 
     Parameters
     -----------
@@ -228,6 +232,10 @@ def terasticher(
         Regular expression to identify
         smartspim channels
 
+    code_url: Optional[str]
+        Github repository where this code is
+        hosted to include in the metadata
+
     Returns
     ----------
     Tuple[PathLike, List[DataProcess]]:
@@ -244,10 +252,15 @@ def terasticher(
         "paraconverter.py"
     )
 
+    channel_path = data_folder.joinpath(channel_name)
+
+    if not channel_path.exists():
+        raise FileExistsError(f"Path {channel_path} does not exist!")
+
     logger.info(f"Starting importing for channel {channel_name}")
 
     teras_import_channel_cmd, teras_import_binary = terastitcher_import_cmd(
-        input_path=transforms_xml_path,
+        input_path=channel_path,
         xml_output_path=metadata_folder,
         import_params=smartspim_config["import_data"],
         channel_name=channel_name,
@@ -265,9 +278,9 @@ def terasticher(
             version=__version__,
             start_date_time=import_start_time,
             end_date_time=import_end_time,
-            input_location=str(transforms_xml_path),
+            input_location=str(channel_path),
             output_location=str(metadata_folder),
-            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+            code_url=code_url,
             parameters=smartspim_config["import_data"],
             notes=f"TeraStitcher image import for channel {channel_name}",
         )
@@ -323,7 +336,7 @@ def terasticher(
             end_date_time=merge_end_time,
             input_location=str(channel_merge_xml_path),
             output_location=str(metadata_folder),
-            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+            code_url=code_url,
             parameters=terastitcher_merge_config,
             notes=f"TeraStitcher image fusion for channel {channel_name}",
         )
@@ -433,7 +446,8 @@ def main(
         ],
     )
 
-    terastitcher_fused_path, data_processes = terasticher(
+    terastitcher_fused_path, data_processes = terasticher_fusion(
+        data_folder=data_folder,
         transforms_xml_path=transforms_xml_path,
         metadata_folder=metadata_folder,
         teras_fusion_folder=teras_fusion_folder,

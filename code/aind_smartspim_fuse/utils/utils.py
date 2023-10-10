@@ -10,10 +10,9 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import xmltodict
-import yaml
 from aind_data_schema import DerivedDataDescription, Processing
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import (Funding, Institution, Modality,
@@ -626,7 +625,7 @@ def create_logger(output_log_path: PathLike) -> logging.Logger:
 
 def create_fusion_folder_structure(
     output_fused_path: PathLike, intermediate_fused_folder: PathLike, channel_name: str
-) -> dict:
+) -> Tuple:
     """
     Creates the fusion folder structure.
 
