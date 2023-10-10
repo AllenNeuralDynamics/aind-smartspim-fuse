@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from aind_data_schema.processing import DataProcess, ProcessName
+
 from .__init__ import __version__
 from ._shared.types import PathLike
 from .utils import utils
@@ -228,9 +230,12 @@ def terasticher(
 
     Returns
     ----------
-    str:
-        Path where the fused data was stored
+    Tuple[PathLike, List[DataProcess]]:
+        Tuple with the path where the fused data
+        was stored and the AIND data processes
+        from the schema
     """
+    data_processes = []
 
     parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
         "Parastitcher.py"
@@ -253,6 +258,20 @@ def terasticher(
     import_start_time = datetime.now()
     utils.execute_command(command=teras_import_channel_cmd, logger=logger, verbose=True)
     import_end_time = datetime.now()
+
+    data_processes.append(
+        DataProcess(
+            name=ProcessName.IMAGE_IMPORTING,
+            version=__version__,
+            start_date_time=import_start_time,
+            end_date_time=import_end_time,
+            input_location=str(transforms_xml_path),
+            output_location=str(metadata_folder),
+            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+            parameters=smartspim_config["import_data"],
+            notes=f"TeraStitcher image import for channel {channel_name}",
+        )
+    )
 
     # Generating new displacements file based on the informative channel
     channel_merge_xml_path = utils.generate_new_channel_alignment_xml(
@@ -296,7 +315,21 @@ def terasticher(
     utils.execute_command(command=teras_merge_channel_cmd, logger=logger, verbose=True)
     merge_end_time = datetime.now()
 
-    return teras_fusion_folder
+    data_processes.append(
+        DataProcess(
+            name=ProcessName.IMAGE_TILE_FUSING,
+            version=__version__,
+            start_date_time=merge_start_time,
+            end_date_time=merge_end_time,
+            input_location=str(channel_merge_xml_path),
+            output_location=str(metadata_folder),
+            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+            parameters=terastitcher_merge_config,
+            notes=f"TeraStitcher image fusion for channel {channel_name}",
+        )
+    )
+
+    return teras_fusion_folder, data_processes
 
 
 def main(
