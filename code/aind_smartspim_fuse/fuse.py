@@ -433,7 +433,7 @@ def main(
         ],
     )
 
-    terastitcher_fused_path = terasticher(
+    terastitcher_fused_path, data_processes = terasticher(
         transforms_xml_path=transforms_xml_path,
         metadata_folder=metadata_folder,
         teras_fusion_folder=teras_fusion_folder,
