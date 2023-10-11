@@ -275,12 +275,13 @@ def terasticher_fusion(
     data_processes.append(
         DataProcess(
             name=ProcessName.IMAGE_IMPORTING,
-            version=__version__,
+            software_version="1.11.10",
             start_date_time=import_start_time,
             end_date_time=import_end_time,
             input_location=str(channel_path),
             output_location=str(metadata_folder),
             code_url=code_url,
+            code_version=__version__,
             parameters=smartspim_config["import_data"],
             notes=f"TeraStitcher image import for channel {channel_name}",
         )
@@ -331,12 +332,13 @@ def terasticher_fusion(
     data_processes.append(
         DataProcess(
             name=ProcessName.IMAGE_TILE_FUSING,
-            version=__version__,
+            software_version="1.11.10",
             start_date_time=merge_start_time,
             end_date_time=merge_end_time,
             input_location=str(channel_merge_xml_path),
             output_location=str(metadata_folder),
             code_url=code_url,
+            code_version=__version__,
             parameters=terastitcher_merge_config,
             notes=f"TeraStitcher image fusion for channel {channel_name}",
         )
@@ -460,3 +462,10 @@ def main(
     logger.info(f"Fused dataset with TeraStitcher in path: {terastitcher_fused_path}")
 
     logger.info(f"Starting OMEZarr conversion in path: {output_fused_path}")
+
+    utils.generate_processing(
+        data_processes=data_processes,
+        dest_processing=metadata_folder,
+        processor_full_name="Camilo Laiton",
+        pipeline_version="1.5.0",
+    )

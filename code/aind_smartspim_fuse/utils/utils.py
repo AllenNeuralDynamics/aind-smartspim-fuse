@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import xmltodict
-from aind_data_schema import DerivedDataDescription, Processing
+from aind_data_schema import (DataProcess, DerivedDataDescription,
+                              PipelineProcess, Processing)
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import (Funding, Institution, Modality,
                                                Platform)
@@ -672,3 +673,48 @@ def create_fusion_folder_structure(
     create_folder(teras_fusion_folder)
 
     return fusion_folder, metadata_folder, teras_fusion_folder
+
+
+def generate_processing(
+    data_processes: List[DataProcess],
+    dest_processing: PathLike,
+    processor_full_name: str,
+    pipeline_version: str,
+):
+    """
+    Generates data description for the output folder.
+
+    Parameters
+    ------------------------
+
+    data_processes: List[dict]
+        List with the processes aplied in the pipeline.
+
+    dest_processing: PathLike
+        Path where the processing file will be placed.
+
+    processor_full_name: str
+        Person in charged of running the pipeline
+        for this data asset
+
+    pipeline_version: str
+        Terastitcher pipeline version
+
+    """
+    # flake8: noqa: E501
+    processing_pipeline = PipelineProcess(
+        data_processes=data_processes,
+        processor_full_name=processor_full_name,
+        pipeline_version=pipeline_version,
+        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+        note="Metadata for fusion step",
+    )
+
+    processing = Processing(
+        processing_pipeline=processing_pipeline,
+        notes="This processing only contains metadata about fusion \
+            and needs to be compiled with other steps at the end",
+    )
+
+    with open(dest_processing, "w") as f:
+        f.write(processing.json(indent=3))
