@@ -141,7 +141,7 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
         required_input_element = Path(required_input_element)
 
         if not required_input_element.exists():
-            missing_inputs.append(required_input_element)
+            missing_inputs.append(str(required_input_element))
 
     return missing_inputs
 
