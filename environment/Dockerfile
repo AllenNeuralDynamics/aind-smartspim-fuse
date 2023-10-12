@@ -70,4 +70,6 @@ RUN pip install -U --no-cache-dir \
     pims==0.6.1 \
     dask[distributed]==2022.11.1 \
     aind-ng-link==1.0.6 \
-    ome-zarr==0.8.2
+    ome-zarr==0.8.2 \
+    psutil==5.9.5 \
+    matplotlib==3.7.3

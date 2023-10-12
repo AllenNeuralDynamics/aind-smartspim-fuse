@@ -4,6 +4,7 @@ for a SmartSPIM dataset
 """
 
 import logging
+import multiprocessing
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -437,7 +438,9 @@ def main(
 
     # Logger pointing everything to the metadata path
     logger = utils.create_logger(output_log_path=metadata_folder)
+    utils.print_system_information(logger)
 
+    logger.info(f"{'='*40} SmartSPIM Fusion {'='*40}")
     logger.info(
         f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
     )
@@ -462,16 +465,40 @@ def main(
         ],
     )
 
-    terastitcher_fused_path, data_processes = terasticher_fusion(
-        data_folder=data_folder,
-        transforms_xml_path=transforms_xml_path,
-        metadata_folder=metadata_folder,
-        teras_fusion_folder=teras_fusion_folder,
-        channel_name=channel_name,
-        smartspim_config=smartspim_config,
-        logger=logger,
-        channel_regex=channel_regex,
+    # Tracking compute resources
+    # Subprocess to track used resources
+    manager = multiprocessing.Manager()
+    time_points = manager.list()
+    cpu_percentages = manager.list()
+    memory_usages = manager.list()
+
+    profile_process = multiprocessing.Process(
+        target=utils.profile_resources,
+        args=(
+            time_points,
+            cpu_percentages,
+            memory_usages,
+            20,
+        ),
     )
+    profile_process.daemon = True
+    profile_process.start()
+
+    try:
+        terastitcher_fused_path, data_processes = terasticher_fusion(
+            data_folder=data_folder,
+            transforms_xml_path=transforms_xml_path,
+            metadata_folder=metadata_folder,
+            teras_fusion_folder=teras_fusion_folder,
+            channel_name=channel_name,
+            smartspim_config=smartspim_config,
+            logger=logger,
+            channel_regex=channel_regex,
+        )
+    except BaseException as e:
+        logger.error(f"An unknown error happened -> {e}")
+        utils.stop_child_process(profile_process)
+        raise ValueError
 
     logger.info(f"Fused dataset with TeraStitcher in path: {terastitcher_fused_path}")
 
@@ -482,4 +509,14 @@ def main(
         dest_processing=metadata_folder,
         processor_full_name="Camilo Laiton",
         pipeline_version="1.5.0",
+    )
+
+    # Getting tracked resources and plotting image
+    utils.stop_child_process(profile_process)
+    utils.generate_resources_graphs(
+        time_points,
+        cpu_percentages,
+        memory_usages,
+        metadata_folder,
+        "smartspim_stitching",
     )
