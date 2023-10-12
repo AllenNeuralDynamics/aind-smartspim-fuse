@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import xmltodict
-from aind_data_schema import (DataProcess, DerivedDataDescription,
-                              PipelineProcess, Processing)
+from aind_data_schema import DerivedDataDescription
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import (Funding, Institution, Modality,
                                                Platform)
+from aind_data_schema.processing import (DataProcess, PipelineProcess,
+                                         Processing)
 
 from .._shared.types import PathLike
 
@@ -107,6 +108,88 @@ def copy_file(input_filename: PathLike, output_filename: PathLike):
         )
 
 
+def check_path_instance(obj: object) -> bool:
+    """
+    Checks if an objects belongs to pathlib.Path subclasses.
+
+    Parameters
+    ------------------------
+
+    obj: object
+        Object that wants to be validated.
+
+    Returns
+    ------------------------
+
+    bool:
+        True if the object is an instance of Path subclass, False otherwise.
+    """
+
+    for childclass in Path.__subclasses__():
+        if isinstance(obj, childclass):
+            return True
+
+    return False
+
+
+def helper_additional_params_command(params: List[str]) -> str:
+    """
+    Helper function to build a command based on values.
+
+    Parameters
+    ------------------------
+
+    params: list
+        List with additional command values used.
+
+    Returns
+    ------------------------
+
+    str:
+        String with the parameters.
+
+    """
+    additional_params = ""
+    for param in params:
+        additional_params += f"--{param} "
+
+    return additional_params
+
+
+def helper_build_param_value_command(
+    params: dict, equal_con: Optional[bool] = True
+) -> str:
+    """
+    Helper function to build a command based on key:value pairs.
+
+    Parameters
+    ------------------------
+
+    params: dict
+        Dictionary with key:value pairs used for building the command.
+
+    equal_con: Optional[bool]
+        Indicates if the parameter is followed by '='. Default True.
+
+    Returns
+    ------------------------
+
+    str:
+        String with the parameters.
+
+    """
+    equal = " "
+    if equal_con:
+        equal = "="
+
+    parameters = ""
+    for param, value in params.items():
+        if type(value) in [str, float, int] or check_path_instance(value):
+            parameters += f"--{param}{equal}{str(value)} "
+
+    return parameters
+
+
 def save_string_to_txt(txt: str, filepath: PathLike, mode="w") -> None:
     """
     Saves a text in a file in the given mode.
@@ -127,34 +210,6 @@ def save_string_to_txt(txt: str, filepath: PathLike, mode="w") -> None:
 
     with open(filepath, mode) as file:
         file.write(txt + "\n")
-
-
-def execute_command(
-    command: str, logger: logging.Logger, verbose: Optional[bool] = False
-):
-    """
-    Execute a shell command with a given configuration.
-
-    Parameters
-    ------------------------
-    command: str
-        Command that we want to execute.
-
-    logger: logging.Logger
-        Logger object
-
-    verbose: Optional[bool]
-        Prints the command in the console
-
-    Raises
-    ------------------------
-    CalledProcessError:
-        if the command could not be executed (Returned non-zero status).
-
-    """
-    for out in execute_command_helper(command, verbose):
-        if len(out):
-            logger.info(out)
 
 
 def execute_command_helper(command: str, print_command: bool = False) -> None:
@@ -191,39 +246,32 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
         raise subprocess.CalledProcessError(return_code, command)
 
 
-def execute_command(config: dict) -> None:
+def execute_command(
+    command: str, logger: logging.Logger, verbose: Optional[bool] = False
+):
     """
     Execute a shell command with a given configuration.
 
     Parameters
     ------------------------
-
     command: str
         Command that we want to execute.
 
-    print_command: bool
-        Bool that dictates if we print the command in the console.
+    logger: logging.Logger
+        Logger object
+
+    verbose: Optional[bool]
+        Prints the command in the console
 
     Raises
     ------------------------
-
     CalledProcessError:
         if the command could not be executed (Returned non-zero status).
 
     """
-    # Command is not executed when info
-    # is True
-    if config["info"]:
-        config["logger"].info(config["command"])
-    else:
-        for out in execute_command_helper(
-            config["command"], config["verbose"], config["stdout_log_file"]
-        ):
-            if len(out):
-                config["logger"].info(out)
-
-            if config["exists_stdout"]:
-                save_string_to_txt(out, config["stdout_log_file"], "a")
+    for out in execute_command_helper(command, verbose):
+        if len(out):
+            logger.info(out)
 
 
 def generate_timestamp(time_format: str = "%Y-%m-%d_%H-%M-%S") -> str:
@@ -343,10 +391,10 @@ def generate_new_channel_alignment_xml(
     xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = new_stacks_folder
     xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = new_bin_folder
 
-    new_channel_name = re.search(channel_regex, channel_path).group()
+    new_channel_name = re.search(channel_regex, str(channel_path)).group()
 
     modified_mergexml_path = str(
-        metadata_folder.joinpath(f"xml_merging_{new_channel_name}")
+        metadata_folder.joinpath(f"xml_merging_{new_channel_name}.xml")
     )
 
     data_to_write = xmltodict.unparse(xml_dict, pretty=True)
@@ -450,8 +498,7 @@ def generate_data_description(
         subject_id=data["subject_id"],
     )
 
-    with open(dest_data_description, "w") as f:
-        f.write(derived.json(indent=3))
+    derived.write_standard_file(output_directory=dest_data_description)
 
     return derived.name
 
@@ -716,5 +763,43 @@ def generate_processing(
             and needs to be compiled with other steps at the end",
     )
 
-    with open(dest_processing, "w") as f:
-        f.write(processing.json(indent=3))
+    processing.write_standard_file(output_directory=dest_processing)
+
+    processing.write_standard_file(output_directory=dest_processing)
+
+
+def save_dict_as_json(
+    filename: str, dictionary: dict, verbose: Optional[bool] = False
+) -> None:
+    """
+    Saves a dictionary as a json file.
+
+    Parameters
+    ------------------------
+
+    filename: str
+        Name of the json file.
+
+    dictionary: dict
+        Dictionary that will be saved as json.
+
+    verbose: Optional[bool]
+        True if you want to print the path where the file was saved.
+
+    """
+
+    if dictionary is None:
+        dictionary = {}
+
+    else:
+        for key, value in dictionary.items():
+            # Converting path to str to dump dictionary into json
+            if check_path_instance(value):
+                # TODO fix the \\ encode problem in dump
+                dictionary[key] = str(value)
+
+    with open(filename, "w") as json_file:
+        json.dump(dictionary, json_file, indent=4)
+
+    if verbose:
+        print(f"- Json file saved: {filename}")

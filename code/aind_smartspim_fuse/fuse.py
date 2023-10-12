@@ -31,10 +31,10 @@ def terastitcher_import_cmd(
     Parameters
     ------------------------
     input_path: PathLike
-        Path where the data is located
+        Path where the input data is located
 
     xml_output_path: PathLike
-        Path where we will save the metadata
+        Path where the import XML will be saved
 
     import_params: dict
         Configuration dictionary used to build the
@@ -158,7 +158,7 @@ def terastitcher_merge_cmd(
     """
 
     paraconverter_path = str(paraconverter_path)
-    parallel_command = build_parallel_command(merge_params, "merge", paraconverter_path)
+    parallel_command = build_parallel_command(merge_params, paraconverter_path)
 
     parameters = utils.helper_build_param_value_command(merge_params)
 
@@ -245,9 +245,9 @@ def terasticher_fusion(
     """
     data_processes = []
 
-    parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
-        "Parastitcher.py"
-    )
+    # parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
+    #     "Parastitcher.py"
+    # )
     paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath(
         "paraconverter.py"
     )
@@ -265,6 +265,8 @@ def terasticher_fusion(
         import_params=smartspim_config["import_data"],
         channel_name=channel_name,
     )
+
+    logger.info(f"TeraStitcher import binary located at: {teras_import_binary}")
     logger.info(f"Executing TeraStitcher command: {teras_import_channel_cmd}")
 
     # Importing channel to generate binary file
@@ -280,6 +282,11 @@ def terasticher_fusion(
             end_date_time=import_end_time,
             input_location=str(channel_path),
             output_location=str(metadata_folder),
+            outputs={
+                "output_file": str(
+                    metadata_folder.joinpath(f"xml_import_{channel_name}.xml")
+                )
+            },
             code_url=code_url,
             code_version=__version__,
             parameters=smartspim_config["import_data"],
@@ -290,11 +297,15 @@ def terasticher_fusion(
     # Generating new displacements file based on the informative channel
     channel_merge_xml_path = utils.generate_new_channel_alignment_xml(
         informative_channel_xml=transforms_xml_path,
-        channel_path=channel_name,
+        channel_path=data_folder.joinpath(channel_name),
         metadata_folder=metadata_folder,
         teras_mdata_bin=teras_import_binary,
         encoding="utf-8",
-        regex_expr=channel_regex,
+        channel_regex=channel_regex,
+    )
+
+    logger.info(
+        f"New alignment file in path {channel_merge_xml_path} based from {transforms_xml_path}"
     )
 
     # Merge configuration
@@ -309,6 +320,7 @@ def terasticher_fusion(
         "depth": smartspim_config["merge"]["slice_extent"][2],
         "additional_params": ["fixed_tiling"],
         "ch_dir": channel_name,
+        # "mdata_fname": teras_import_binary
         # 'clist':'0'
     }
 
@@ -337,6 +349,7 @@ def terasticher_fusion(
             end_date_time=merge_end_time,
             input_location=str(channel_merge_xml_path),
             output_location=str(metadata_folder),
+            outputs={"output_folder": str(teras_fusion_folder)},
             code_url=code_url,
             code_version=__version__,
             parameters=terastitcher_merge_config,
@@ -388,6 +401,7 @@ def main(
     """
 
     # Converting to path objects if necessary
+    data_folder = Path(data_folder)
     transforms_xml_path = Path(transforms_xml_path)
     output_fused_path = Path(output_fused_path)
     intermediate_fused_folder = Path(intermediate_fused_folder)
@@ -401,7 +415,7 @@ def main(
     )
 
     if not len(smartspim_channels):
-        raise ValueError("No SmartSPIM channels found!")
+        raise ValueError(f"No SmartSPIM channels found in path: {data_folder}")
 
     # Setting first found channel to reconstruct
     # This is intented to be compatible with CO pipelines
@@ -432,7 +446,7 @@ def main(
 
     utils.generate_data_description(
         raw_data_description_path=data_folder.joinpath("data_description.json"),
-        dest_data_description=output_fused_path.joinpath("data_description.json"),
+        dest_data_description=output_fused_path,
         process_name="stitched",
     )
 

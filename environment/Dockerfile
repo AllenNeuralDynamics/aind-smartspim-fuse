@@ -55,7 +55,6 @@ RUN conda create -n smartspim_fusion python=3.8
 
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "-n", "smartspim_fusion", "/bin/bash", "-c"]
-RUN conda install -c conda-forge awscli
 
 RUN pip install -U --no-cache-dir \
     'tifffile < 2022.4.22' \
@@ -65,7 +64,7 @@ RUN pip install -U --no-cache-dir \
     bokeh==2.4.2 \
     zarr==2.13.3 \
     pint==0.20.1 \
-    aind-data-schema==0.15.0 \
+    aind-data-schema==0.15.3 \
     xmltodict==0.13.0 \
     natsort==8.2.0 \
     pims==0.6.1 \
