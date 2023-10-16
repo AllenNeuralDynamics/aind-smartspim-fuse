@@ -770,8 +770,6 @@ def generate_processing(
 
     processing.write_standard_file(output_directory=dest_processing)
 
-    processing.write_standard_file(output_directory=dest_processing)
-
 
 def save_dict_as_json(
     filename: str, dictionary: dict, verbose: Optional[bool] = False
