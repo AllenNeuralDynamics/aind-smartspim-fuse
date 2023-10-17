@@ -183,7 +183,7 @@ def run():
     smartspim_config["name"] = smartspim_dataset_name
 
     fuse.main(
-        data_folder=f"{data_folder}/SmartSPIM_622957_2022-06-07_10-54-57/SmartSPIM",
+        data_folder=data_folder,
         transforms_xml_path=Path(data_folder).joinpath("volume_alignments.xml"),
         output_fused_path=Path(results_folder),
         intermediate_fused_folder=Path(scratch_folder),
