@@ -539,7 +539,7 @@ def main(
             software_version=__version__,
             start_date_time=file_convert_start_time,
             end_date_time=file_convert_end_time,
-            input_location="check",  # str(terastitcher_fused_path),
+            input_location=str(terastitcher_fused_path),
             output_location=str(fusion_folder),
             outputs={
                 "output_file": str(fusion_folder.joinpath(f"{channel_name}.zarr"))
