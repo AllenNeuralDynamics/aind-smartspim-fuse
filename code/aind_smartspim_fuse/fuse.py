@@ -512,20 +512,21 @@ def main(
 
     logger.info(f"Starting OMEZarr conversion in path: {output_fused_path}")
 
+    voxel_size = [  # ZYX order
+        smartspim_config["import_data"]["vxl3"],  # Z
+        smartspim_config["import_data"]["vxl2"],  # Y
+        smartspim_config["import_data"]["vxl1"],  # X
+    ]
+    zarr_chunksize = [128, 128, 128]
+
     (
         file_convert_start_time,
         file_convert_end_time,
     ) = spim_zarr.write_zarr_from_terastitcher(
-        input_path=Path(
-            "/scratch/teras_stitched/RES(8801x7427x3879)"
-        ),  # terastitcher_fused_path,
+        input_path=terastitcher_fused_path,
         output_path=fusion_folder,
-        voxel_size=[  # ZYX order
-            smartspim_config["import_data"]["vxl3"],  # Z
-            smartspim_config["import_data"]["vxl2"],  # Y
-            smartspim_config["import_data"]["vxl1"],  # X
-        ],
-        final_chunksize=[128, 128, 128],
+        voxel_size=voxel_size,
+        final_chunksize=zarr_chunksize,
         scale_factor=smartspim_config["ome_zarr_params"]["scale_factor"],
         codec=smartspim_config["ome_zarr_params"]["codec"],
         compression_level=smartspim_config["ome_zarr_params"]["clevel"],
@@ -546,7 +547,11 @@ def main(
             },
             code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
             code_version=__version__,
-            parameters=smartspim_config,
+            parameters={
+                "ome_zarr_params": smartspim_config["ome_zarr_params"],
+                "voxel_size": voxel_size,
+                "ome_zarr_chunksize": zarr_chunksize,
+            },
             notes=f"File format conversion from .tiff to OMEZarr for channel {channel_name}",
         )
     )
