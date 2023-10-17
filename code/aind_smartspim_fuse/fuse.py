@@ -4,7 +4,7 @@ for a SmartSPIM dataset
 """
 
 import logging
-import multiprocessing
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -14,6 +14,7 @@ from aind_data_schema.processing import DataProcess, ProcessName
 from .__init__ import __version__
 from ._shared.types import PathLike
 from .utils import utils
+from .zarr_writer import smartspim_zarr_writer as spim_zarr
 
 
 def terastitcher_import_cmd(
@@ -342,6 +343,11 @@ def terasticher_fusion(
     utils.execute_command(command=teras_merge_channel_cmd, logger=logger, verbose=True)
     merge_end_time = datetime.now()
 
+    # Getting new top level folder after fusion
+    teras_fusion_folder = [
+        x for x in teras_fusion_folder.iterdir() if x.is_dir() and "RES" in str(x)
+    ][0]
+
     data_processes.append(
         DataProcess(
             name=ProcessName.IMAGE_TILE_FUSING,
@@ -400,7 +406,6 @@ def main(
         smartspim channels
 
     """
-
     # Converting to path objects if necessary
     data_folder = Path(data_folder)
     transforms_xml_path = Path(transforms_xml_path)
@@ -441,6 +446,7 @@ def main(
     utils.print_system_information(logger)
 
     logger.info(f"{'='*40} SmartSPIM Fusion {'='*40}")
+
     logger.info(
         f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
     )
@@ -456,7 +462,7 @@ def main(
     logger.info("Copying all available raw SmartSPIM metadata")
 
     # This is the AIND metadata
-    utils.copy_available_metadata(
+    found_metadata = utils.copy_available_metadata(
         input_path=data_folder,
         output_path=output_fused_path,
         ignore_files=[
@@ -465,44 +471,62 @@ def main(
         ],
     )
 
-    # Tracking compute resources
-    # Subprocess to track used resources
-    manager = multiprocessing.Manager()
-    time_points = manager.list()
-    cpu_percentages = manager.list()
-    memory_usages = manager.list()
+    logger.info(f"Copied metadata from {data_folder}: {found_metadata}")
+    logger.info(f"Metadata in folder: {os.listdir(output_fused_path)}")
 
-    profile_process = multiprocessing.Process(
-        target=utils.profile_resources,
-        args=(
-            time_points,
-            cpu_percentages,
-            memory_usages,
-            20,
-        ),
+    terastitcher_fused_path, data_processes = terasticher_fusion(
+        data_folder=data_folder,
+        transforms_xml_path=transforms_xml_path,
+        metadata_folder=metadata_folder,
+        teras_fusion_folder=teras_fusion_folder,
+        channel_name=channel_name,
+        smartspim_config=smartspim_config,
+        logger=logger,
+        channel_regex=channel_regex,
     )
-    profile_process.daemon = True
-    profile_process.start()
-
-    try:
-        terastitcher_fused_path, data_processes = terasticher_fusion(
-            data_folder=data_folder,
-            transforms_xml_path=transforms_xml_path,
-            metadata_folder=metadata_folder,
-            teras_fusion_folder=teras_fusion_folder,
-            channel_name=channel_name,
-            smartspim_config=smartspim_config,
-            logger=logger,
-            channel_regex=channel_regex,
-        )
-    except BaseException as e:
-        logger.error(f"An unknown error happened -> {e}")
-        utils.stop_child_process(profile_process)
-        raise ValueError
 
     logger.info(f"Fused dataset with TeraStitcher in path: {terastitcher_fused_path}")
 
     logger.info(f"Starting OMEZarr conversion in path: {output_fused_path}")
+
+    (
+        file_convert_start_time,
+        file_convert_end_time,
+    ) = spim_zarr.write_zarr_from_terastitcher(
+        input_path=Path(
+            "/scratch/teras_stitched/RES(8801x7427x3879)"
+        ),  # terastitcher_fused_path,
+        output_path=fusion_folder,
+        voxel_size=[  # ZYX order
+            smartspim_config["import_data"]["vxl3"],  # Z
+            smartspim_config["import_data"]["vxl2"],  # Y
+            smartspim_config["import_data"]["vxl1"],  # X
+        ],
+        final_chunksize=[128, 128, 128],
+        scale_factor=smartspim_config["ome_zarr_params"]["scale_factor"],
+        codec=smartspim_config["ome_zarr_params"]["codec"],
+        compression_level=smartspim_config["ome_zarr_params"]["clevel"],
+        n_lvls=smartspim_config["ome_zarr_params"]["pyramid_levels"],
+        logger=logger,
+    )
+
+    data_processes.append(
+        DataProcess(
+            name=ProcessName.FILE_CONVERSION,
+            software_version=__version__,
+            start_date_time=file_convert_start_time,
+            end_date_time=file_convert_end_time,
+            input_location="check",  # str(terastitcher_fused_path),
+            output_location=str(fusion_folder),
+            outputs={
+                "output_file": str(fusion_folder.joinpath(f"{channel_name}.zarr"))
+            },
+            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+            code_version=__version__,
+            parameters=smartspim_config,
+            notes=f"File format conversion from .tiff to OMEZarr for channel {channel_name}",
+        )
+    )
 
     utils.generate_processing(
         data_processes=data_processes,
@@ -510,14 +534,3 @@ def main(
         processor_full_name="Camilo Laiton",
         pipeline_version="1.5.0",
     )
-
-    # Getting tracked resources and plotting image
-    utils.stop_child_process(profile_process)
-    if len(time_points):
-        utils.generate_resources_graphs(
-            time_points,
-            cpu_percentages,
-            memory_usages,
-            metadata_folder,
-            "smartspim_fusion",
-        )

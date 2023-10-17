@@ -62,9 +62,9 @@ RUN pip install -U --no-cache-dir \
     argschema==3.0.4 \
     mpi4py \
     bokeh==2.4.2 \
-    zarr==2.13.3 \
+    zarr==2.16.1 \
     pint==0.20.1 \
-    aind-data-schema==0.15.3 \
+    aind-data-schema==0.15.9 \
     xmltodict==0.13.0 \
     natsort==8.2.0 \
     pims==0.6.1 \
@@ -72,4 +72,5 @@ RUN pip install -U --no-cache-dir \
     aind-ng-link==1.0.6 \
     ome-zarr==0.8.2 \
     psutil==5.9.5 \
-    matplotlib==3.7.3
+    matplotlib==3.7.3 \
+    imagecodecs[all]==2023.3.16

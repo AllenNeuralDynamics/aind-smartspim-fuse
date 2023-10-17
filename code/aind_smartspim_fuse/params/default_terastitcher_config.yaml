@@ -31,7 +31,7 @@ ome_zarr_params:
   - 2
   - 2
   - 2
-  pyramid_levels: 5
+  pyramid_levels: 4
 visualization:
   ng_base_url: "https://aind-neuroglancer-sauujisjxq-uw.a.run.app"
   mount_service: "s3"
