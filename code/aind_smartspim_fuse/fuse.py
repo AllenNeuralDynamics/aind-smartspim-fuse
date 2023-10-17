@@ -4,6 +4,7 @@ for a SmartSPIM dataset
 """
 
 import logging
+import multiprocessing
 import os
 from datetime import datetime
 from pathlib import Path
@@ -445,6 +446,28 @@ def main(
     logger = utils.create_logger(output_log_path=metadata_folder)
     utils.print_system_information(logger)
 
+    # Tracking compute resources
+    # Subprocess to track used resources
+    manager = multiprocessing.Manager()
+    time_points = manager.list()
+    cpu_percentages = manager.list()
+    memory_usages = manager.list()
+
+    profile_process = multiprocessing.Process(
+        target=utils.profile_resources,
+        args=(
+            time_points,
+            cpu_percentages,
+            memory_usages,
+            20,
+        ),
+    )
+    profile_process.daemon = True
+    profile_process.start()
+
+    logger.info(f"{'='*40} SmartSPIM Stitching {'='*40}")
+    logger.info(f"Output folders - Stitch metadata: {metadata_folder}")
+
     logger.info(f"{'='*40} SmartSPIM Fusion {'='*40}")
 
     logger.info(
@@ -534,3 +557,15 @@ def main(
         processor_full_name="Camilo Laiton",
         pipeline_version="1.5.0",
     )
+
+    # Getting tracked resources and plotting image
+    utils.stop_child_process(profile_process)
+
+    if len(time_points):
+        utils.generate_resources_graphs(
+            time_points,
+            cpu_percentages,
+            memory_usages,
+            metadata_folder,
+            "smartspim_fusion",
+        )
