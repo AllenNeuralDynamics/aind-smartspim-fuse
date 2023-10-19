@@ -418,40 +418,6 @@ def generate_new_channel_alignment_xml(
 
     return modified_mergexml_path
 
-
-def generate_processing(
-    data_processes: List[dict],
-    dest_processing: PathLike,
-    pipeline_version: str,
-):
-    """
-    Generates data description for the output folder.
-
-    Parameters
-    ------------------------
-
-    data_processes: List[dict]
-        List with the processes aplied in the pipeline.
-
-    dest_processing: PathLike
-        Path where the processing file will be placed.
-
-    pipeline_version: str
-        Terastitcher pipeline version
-
-    """
-
-    # flake8: noqa: E501
-    processing = Processing(
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        pipeline_version=pipeline_version,
-        data_processes=data_processes,
-    )
-
-    with open(dest_processing, "w") as f:
-        f.write(processing.json(indent=3))
-
-
 def generate_data_description(
     raw_data_description_path: PathLike,
     dest_data_description: PathLike,
