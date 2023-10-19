@@ -423,7 +423,7 @@ def generate_processing(
     data_processes: List[dict],
     dest_processing: PathLike,
     pipeline_version: str,
-) -> None:
+):
     """
     Generates data description for the output folder.
 
@@ -443,7 +443,7 @@ def generate_processing(
 
     # flake8: noqa: E501
     processing = Processing(
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
+        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
         pipeline_version=pipeline_version,
         data_processes=data_processes,
     )
