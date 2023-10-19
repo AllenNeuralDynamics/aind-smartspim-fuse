@@ -716,8 +716,9 @@ def create_fusion_folder_structure(
         )
         create_folder(dest_dir=intermediate_fused_folder)
 
+    output_fused_path = output_fused_path.joinpath(f"fusion_{channel_name}")
     fusion_folder = output_fused_path.joinpath("OMEZarr")
-    metadata_folder = output_fused_path.joinpath(f"metadata/fusion_{channel_name}")
+    metadata_folder = output_fused_path.joinpath(f"metadata")
     teras_fusion_folder = intermediate_fused_folder.joinpath("teras_stitched")
 
     create_folder(fusion_folder)
