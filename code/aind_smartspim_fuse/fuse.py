@@ -474,29 +474,6 @@ def main(
         f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
     )
 
-    logger.info(f"Generating derived data description")
-
-    utils.generate_data_description(
-        raw_data_description_path=data_folder.joinpath("data_description.json"),
-        dest_data_description=output_fused_path,
-        process_name="stitched",
-    )
-
-    logger.info("Copying all available raw SmartSPIM metadata")
-
-    # This is the AIND metadata
-    found_metadata = utils.copy_available_metadata(
-        input_path=data_folder,
-        output_path=output_fused_path,
-        ignore_files=[
-            "data_description.json",  # Ignoring data description since we're generating it above
-            "processing.json",  # This is generated with all the steps
-        ],
-    )
-
-    logger.info(f"Copied metadata from {data_folder}: {found_metadata}")
-    logger.info(f"Metadata in folder: {os.listdir(output_fused_path)}")
-
     terastitcher_fused_path, data_processes = terasticher_fusion(
         data_folder=data_folder,
         transforms_xml_path=transforms_xml_path,
