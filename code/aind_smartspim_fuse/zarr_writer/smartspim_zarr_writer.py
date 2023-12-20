@@ -9,6 +9,7 @@ import logging
 import multiprocessing
 import os
 import time
+from pathlib import Path
 from typing import Dict, Hashable, List, Optional, Sequence, Tuple, Union, cast
 
 import dask
@@ -613,6 +614,7 @@ def smartspim_channel_zarr_writer(
     )
 
     client = Client(cluster)
+    channel_name_stem = Path(channel_name).stem
     performance_report_path = f"{output_path}/report_{channel_name}.html"
 
     start_time = time.time()
