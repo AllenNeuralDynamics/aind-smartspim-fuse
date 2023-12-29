@@ -18,12 +18,12 @@ from typing import List, Optional, Tuple
 import matplotlib.pyplot as plt
 import psutil
 import xmltodict
-from aind_data_schema import DerivedDataDescription
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.data_description import (Funding, Institution, Modality,
-                                               Platform)
-from aind_data_schema.processing import (DataProcess, PipelineProcess,
-                                         Processing)
+from aind_data_schema.core.data_description import (DerivedDataDescription,
+                                                    Funding, Institution,
+                                                    Modality, Platform)
+from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
+                                              Processing)
 
 from .._shared.types import PathLike
 
