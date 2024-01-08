@@ -1,18 +1,12 @@
-metadata_version: 1.0.0
+metadata_version: 1
 name: aind-smartspim-fuse
 description: A tool for fast automatic 3D-stitching of teravoxel-sized microscopy
   images using cloud computing resources and TeraStitcher. This version works with
-  the code ocean pipeline feature since at this moment, it is not possible to
-  include parameters in the execution.
+  the code ocean pipeline feature since at this moment, it is not possible to include
+  parameters in the execution. It generates a fused OMEZarr dataset per image channel.
 tags:
-- SmartSPIM
+- smartspim
 authors:
 - name: Camilo Laiton
-  affiliations:
-  - name: Allen Institute for Neural Dynamics
-- name: David Feng
-  affiliations:
-  - name: Allen Institute for Neural Dynamics
 - name: Sharmishtaa Seshamani
-  affiliations:
-  - name: Allen Institute for Neural Dynamics
+- name: David Feng
