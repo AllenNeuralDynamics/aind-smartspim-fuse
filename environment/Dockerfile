@@ -56,6 +56,9 @@ RUN conda create -n smartspim_fusion python=3.8
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "-n", "smartspim_fusion", "/bin/bash", "-c"]
 
+# I prefer to install jpype from conda at expense of having a heavier Dockerfile
+RUN conda install -c conda-forge jpype1
+
 RUN pip install -U --no-cache-dir \
     'tifffile < 2022.4.22' \
     xarray_multiscale==1.1.0 \
