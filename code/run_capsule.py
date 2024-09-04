@@ -12,6 +12,7 @@ def get_data_config(
     data_folder: str,
     processing_manifest_path: str = "processing_manifest.json",
     data_description_path: str = "data_description.json",
+    acquisition_path: str = "acquisition.json",
 ) -> Tuple:
     """
     Returns the first smartspim dataset found
@@ -42,19 +43,24 @@ def get_data_config(
     # Doing this because of Code Ocean, ideally we would have
     # a single dataset in the pipeline
 
-    derivatives_dict = utils.read_json_as_dict(
-        f"{data_folder}/{processing_manifest_path}"
-    )
-    data_description_dict = utils.read_json_as_dict(
-        f"{data_folder}/{data_description_path}"
-    )
+    processing_manifest_path = Path(f"{data_folder}/{processing_manifest_path}")
+    data_description_path = Path(f"{data_folder}/{data_description_path}")
+
+    if not processing_manifest_path.exists():
+        raise ValueError(f"Please, check processing manifest path: {processing_manifest_path}")
+
+    if not data_description_path.exists():
+        raise ValueError(f"Please, check data description path: {data_description_path}")
+
+    derivatives_dict = utils.read_json_as_dict(str(processing_manifest_path))
+    data_description_dict = utils.read_json_as_dict(str(data_description_path))
+    acquisition_dict = utils.read_json_as_dict(f"{data_folder}/{acquisition_path}")
 
     smartspim_dataset = data_description_dict["name"]
 
-    return derivatives_dict, smartspim_dataset
+    return derivatives_dict, smartspim_dataset, acquisition_dict
 
-
-def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict):
+def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict, acquisition_config: dict):
     """
     Sets up smartspim stitching parameters that come from the
     pipeline configuration
@@ -80,41 +86,25 @@ def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict):
         Dictionary with the combined parameters
     """
 
-    def get_resolution_from_array(resolutions: list, axis_name: str) -> float:
-        """
-        Gets the resolution from a list of dict.
-        This is based on the processing manifest json.
+    # Grabbing a tile with metadata from acquisition - we assume all dataset
+    # was acquired with the same resolution
+    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
 
-        Parameters
-        resolutions: List[dict]
-            List with dictionaries that have
-            the resolution and axis name
-        """
+    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
 
-        axis_size = None
-        axis_name = axis_name.casefold()
+    x = float(scale_transform[0])
+    y = float(scale_transform[1])
+    z = float(scale_transform[2])
 
-        for resolution in resolutions:
-            if axis_name == resolution["axis_name"].casefold():
-                axis_size = resolution["resolution"]
-                break
-
-        return axis_size
-
-    default_config["import_data"]["vxl1"] = get_resolution_from_array(
-        resolutions=pipeline_config["stitching"]["resolution"], axis_name="x"
-    )
-    default_config["import_data"]["vxl2"] = get_resolution_from_array(
-        resolutions=pipeline_config["stitching"]["resolution"], axis_name="y"
-    )
-    default_config["import_data"]["vxl3"] = get_resolution_from_array(
-        resolutions=pipeline_config["stitching"]["resolution"], axis_name="z"
-    )
+    default_config["import_data"]["vxl1"] = x
+    default_config["import_data"]["vxl2"] = y
+    default_config["import_data"]["vxl3"] = z
 
     dict_cpus = pipeline_config["stitching"].get("cpus")
-    cpus = 16 if dict_cpus is None else dict_cpus
+    cpus = utils.get_code_ocean_cpu_limit() if dict_cpus is None else dict_cpus
 
-    default_config["merge"]["cpu_params"]["number_processes"] = cpus
+    default_config["align"]["cpu_params"]["number_processes"] = cpus
+    default_config["stitching"] = pipeline_config["stitching"].copy()
 
     return default_config
 
@@ -160,6 +150,7 @@ def run():
         f"{data_folder}/volume_alignments.xml",
         f"{data_folder}/processing_manifest.json",
         f"{data_folder}/data_description.json",
+        f"{data_folder}/acquisition.json",
     ]
 
     missing_files = validate_capsule_inputs(required_input_elements)
@@ -169,7 +160,12 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
-    pipeline_config, smartspim_dataset_name = get_data_config(data_folder=data_folder)
+    pipeline_config, smartspim_dataset_name, acquisition_dict = get_data_config(
+        data_folder=data_folder,
+        processing_manifest_path="processing_manifest.json",
+        data_description_path="data_description.json",
+        acquisition_path="acquisition.json",
+    )
     pipeline_config = pipeline_config["pipeline_processing"]
 
     default_config = get_yaml(
@@ -177,7 +173,9 @@ def run():
     )
 
     smartspim_config = set_up_pipeline_parameters(
-        pipeline_config=pipeline_config, default_config=default_config
+        pipeline_config=pipeline_config,
+        default_config=default_config,
+        acquisition_config=acquisition_dict,
     )
 
     smartspim_config["name"] = smartspim_dataset_name
