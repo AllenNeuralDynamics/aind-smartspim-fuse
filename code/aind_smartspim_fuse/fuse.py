@@ -513,7 +513,7 @@ def main(
 
     data_processes.append(
         DataProcess(
-            name=ProcessName.FILE_CONVERSION,
+            name=ProcessName.FILE_FORMAT_CONVERSION,
             software_version=__version__,
             start_date_time=file_convert_start_time,
             end_date_time=file_convert_end_time,
