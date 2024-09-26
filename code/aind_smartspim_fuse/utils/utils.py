@@ -19,11 +19,6 @@ import matplotlib.pyplot as plt
 import psutil
 import xmltodict
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.data_description import (DerivedDataDescription, Funding)
-from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.organizations import Organization
-from aind_data_schema_models.pid_names import PIDName
-from aind_data_schema_models.platforms import Platform
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
 
@@ -419,6 +414,7 @@ def generate_new_channel_alignment_xml(
         xml_writer.write(new_data_to_write)
 
     return modified_mergexml_path
+
 
 def copy_available_metadata(
     input_path: PathLike, output_path: PathLike, ignore_files: List[str]

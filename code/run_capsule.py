@@ -1,4 +1,5 @@
 """ top level run script """
+
 import os
 from pathlib import Path
 from typing import List, Tuple
@@ -47,10 +48,14 @@ def get_data_config(
     data_description_path = Path(f"{data_folder}/{data_description_path}")
 
     if not processing_manifest_path.exists():
-        raise ValueError(f"Please, check processing manifest path: {processing_manifest_path}")
+        raise ValueError(
+            f"Please, check processing manifest path: {processing_manifest_path}"
+        )
 
     if not data_description_path.exists():
-        raise ValueError(f"Please, check data description path: {data_description_path}")
+        raise ValueError(
+            f"Please, check data description path: {data_description_path}"
+        )
 
     derivatives_dict = utils.read_json_as_dict(str(processing_manifest_path))
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
@@ -60,7 +65,10 @@ def get_data_config(
 
     return derivatives_dict, smartspim_dataset, acquisition_dict
 
-def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict, acquisition_config: dict):
+
+def set_up_pipeline_parameters(
+    pipeline_config: dict, default_config: dict, acquisition_config: dict
+):
     """
     Sets up smartspim stitching parameters that come from the
     pipeline configuration
@@ -90,7 +98,9 @@ def set_up_pipeline_parameters(pipeline_config: dict, default_config: dict, acqu
     # was acquired with the same resolution
     tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
 
-    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
+    scale_transform = [
+        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
+    ][0]
 
     x = float(scale_transform[0])
     y = float(scale_transform[1])

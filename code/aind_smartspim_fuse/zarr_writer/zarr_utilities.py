@@ -115,9 +115,9 @@ def read_image_directory_structure(folder_dir: PathLike) -> dict:
                     )
 
                     if os.path.isdir(possible_row):
-                        directory_structure[channel_paths[channel_idx]][col][
-                            row
-                        ] = natsorted(os.listdir(possible_row))
+                        directory_structure[channel_paths[channel_idx]][col][row] = (
+                            natsorted(os.listdir(possible_row))
+                        )
 
     return directory_structure
 
