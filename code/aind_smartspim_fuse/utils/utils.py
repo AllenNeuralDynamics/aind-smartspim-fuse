@@ -19,9 +19,11 @@ import matplotlib.pyplot as plt
 import psutil
 import xmltodict
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.data_description import (DerivedDataDescription,
-                                                    Funding, Institution,
-                                                    Modality, Platform)
+from aind_data_schema.core.data_description import (DerivedDataDescription, Funding)
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.organizations import Organization
+from aind_data_schema_models.pid_names import PIDName
+from aind_data_schema_models.platforms import Platform
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
 
@@ -417,63 +419,6 @@ def generate_new_channel_alignment_xml(
         xml_writer.write(new_data_to_write)
 
     return modified_mergexml_path
-
-
-def generate_data_description(
-    raw_data_description_path: PathLike,
-    dest_data_description: PathLike,
-    process_name: Optional[str] = "stitched",
-):
-    """
-    Generates data description for the output folder.
-
-    Parameters
-    -------------
-
-    raw_data_description_path: PathLike
-        Path where the data description file is located.
-
-    dest_data_description: PathLike
-        Path where the new data description will be placed.
-
-    process_name: str
-        Process name of the new dataset
-
-
-    Returns
-    -------------
-    str
-        New folder name for the fused
-        data
-    """
-
-    f = open(raw_data_description_path, "r")
-    data = json.load(f)
-
-    institution = data["institution"]
-    if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
-        institution = data["institution"]["abbreviation"]
-
-    funding_sources = [Funding.parse_obj(fund) for fund in data["funding_source"]]
-    derived = DerivedDataDescription(
-        creation_time=datetime.now(),
-        input_data_name=data["name"],
-        process_name=process_name,
-        institution=Institution[institution],
-        funding_source=funding_sources,
-        group=data["group"],
-        investigators=data["investigators"],
-        platform=Platform.SMARTSPIM,
-        project_name=data["project_name"],
-        restrictions=data["restrictions"],
-        modality=[Modality.SPIM],
-        subject_id=data["subject_id"],
-    )
-
-    derived.write_standard_file(output_directory=dest_data_description)
-
-    return derived.name
-
 
 def copy_available_metadata(
     input_path: PathLike, output_path: PathLike, ignore_files: List[str]
