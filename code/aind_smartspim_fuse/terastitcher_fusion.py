@@ -11,7 +11,7 @@ from typing import Optional
 
 from aind_data_schema.core.processing import DataProcess, ProcessName
 
-from .__init__ import __version__
+from . import __version__
 from ._shared.types import PathLike
 from .utils import utils
 from .zarr_writer import smartspim_zarr_writer as spim_zarr
