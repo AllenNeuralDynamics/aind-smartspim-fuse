@@ -336,14 +336,14 @@ def execute_job():
 
         data_process = DataProcess(
             name=ProcessName.IMAGE_TILE_FUSING,
-            software_version="0.0.1",
+            software_version="0.0.2",
             start_date_time=start_time,
             end_date_time=end_time,
             input_location=str(xml_path),
             output_location=str(output_path),
             outputs={},
             code_url="",
-            code_version="0.0.1",
+            code_version="0.0.2",
             parameters={
                 "voxel_resolution": voxel_resolution,
                 "scale_factor": scale_factor,
