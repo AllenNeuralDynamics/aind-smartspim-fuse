@@ -314,7 +314,7 @@ def execute_job():
         zarr_group = zarr.open(store, mode="a")
 
         n_workers = int(get_code_ocean_cpu_limit())
-        n_levels = 5
+        n_levels = 4
         threads_per_worker = 1
 
         # Computing multiscales

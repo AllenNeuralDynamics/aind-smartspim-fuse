@@ -9,11 +9,12 @@ import dask.array as da
 import numpy as np
 import xarray_multiscale
 import zarr
-from blocked_zarr_writer import BlockedArrayWriter
 from dask.distributed import Client, LocalCluster
 from numcodecs import blosc
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscales_metadata
+
+from .blocked_zarr_writer import BlockedArrayWriter
 
 
 def compute_pyramid(
