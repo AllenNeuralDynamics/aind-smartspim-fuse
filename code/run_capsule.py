@@ -1,10 +1,10 @@
 """ top level run script """
 
 import os
+from code.aind_smartspim_fuse import terastitcher_fusion
 from pathlib import Path
 from typing import List, Tuple
 
-from code.aind_smartspim_fuse import terastitcher_fusion
 from aind_smartspim_fuse.params import get_yaml
 from aind_smartspim_fuse.utils import utils
 
