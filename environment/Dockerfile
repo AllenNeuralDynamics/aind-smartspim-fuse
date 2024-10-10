@@ -13,6 +13,3 @@ RUN pip install -U --no-cache-dir \
     xarray_multiscale==2.1.0 \
     ome-zarr==0.9.0 \
     git+https://github.com/AllenNeuralDynamics/aind-cloud-fusion.git@hybrid-runtime
-
-#COPY postInstall /
-#RUN /postInstall

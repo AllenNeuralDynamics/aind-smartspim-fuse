@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-set -e
-
-git clone -b hybrid-runtime https://github.com/AllenNeuralDynamics/aind-cloud-fusion.git
-cd aind-cloud-fusion
-pip install -e .
