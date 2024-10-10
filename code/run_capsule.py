@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Tuple
 
-from aind_smartspim_fuse import fuse
+from code.aind_smartspim_fuse import terastitcher_fusion
 from aind_smartspim_fuse.params import get_yaml
 from aind_smartspim_fuse.utils import utils
 
@@ -189,7 +189,7 @@ def run():
 
     smartspim_config["name"] = smartspim_dataset_name
 
-    fuse.main(
+    terastitcher_fusion.main(
         data_folder=data_folder,
         transforms_xml_path=Path(data_folder).joinpath("volume_alignments.xml"),
         output_fused_path=Path(results_folder),
