@@ -744,7 +744,7 @@ def write_zarr_from_terastitcher(
     directory_structure = read_image_directory_structure(input_path)
 
     # 0 workers means that we'll get all processors
-    workers = 0
+    workers = 32
     smartspim_channels = parallel_read_chunked_stitched_multichannel_image(
         directory_structure, workers, ensure_parallel=True, divide_channels=True
     )
