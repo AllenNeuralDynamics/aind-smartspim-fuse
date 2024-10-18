@@ -494,7 +494,7 @@ def main(
         smartspim_config["import_data"]["vxl1"],  # X
     ]
     zarr_chunksize = [128, 128, 128]
-    n_workers = utils.get_code_ocean_cpu_limit()
+    n_workers = int(utils.get_code_ocean_cpu_limit())
 
     (
         file_convert_start_time,
