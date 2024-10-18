@@ -509,7 +509,7 @@ def main(
         compression_level=smartspim_config["ome_zarr_params"]["clevel"],
         n_lvls=smartspim_config["ome_zarr_params"]["pyramid_levels"],
         logger=logger,
-        n_workers=n_workers
+        workers=n_workers
     )
 
     data_processes.append(

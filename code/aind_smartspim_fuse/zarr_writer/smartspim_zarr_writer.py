@@ -688,6 +688,7 @@ def write_zarr_from_terastitcher(
     compression_level: int,
     n_lvls: int,
     logger: logging.Logger,
+    workers: int = 32
 ) -> List[time.time]:
     """
     Writes a Zarr from TeraStitcher output.
@@ -744,7 +745,6 @@ def write_zarr_from_terastitcher(
     directory_structure = read_image_directory_structure(input_path)
 
     # 0 workers means that we'll get all processors
-    workers = 32
     smartspim_channels = parallel_read_chunked_stitched_multichannel_image(
         directory_structure, workers, ensure_parallel=True, divide_channels=True
     )
@@ -769,6 +769,7 @@ def write_zarr_from_terastitcher(
             n_lvls=n_lvls,
             channel_name=f"{channel_name}.zarr",
             logger=logger,
+            n_workers=workers
         )
 
     end_time = time.time()
