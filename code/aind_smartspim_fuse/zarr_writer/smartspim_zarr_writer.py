@@ -32,7 +32,6 @@ from skimage.io import imread as sk_imread
 from .blocked_zarr_writer import BlockedArrayWriter
 from .zarr_utilities import *
 
-
 def _build_ome(
     data_shape: Tuple[int, ...],
     image_name: str,
@@ -502,6 +501,7 @@ def smartspim_channel_zarr_writer(
     n_lvls: int,
     channel_name: str,
     logger: logging.Logger,
+    n_workers: 16,
 ):
     """
     Writes a fused SmartSPIM channel in OMEZarr
@@ -563,7 +563,7 @@ def smartspim_channel_zarr_writer(
     root_group = zarr.group(store=store)
 
     # Setting up local cluster
-    n_workers = multiprocessing.cpu_count()
+    # n_workers = multiprocessing.cpu_count()
     logger.info(f"Setting {n_workers} workers")
     threads_per_worker = 1
     # Using 1 thread since is in single machine.

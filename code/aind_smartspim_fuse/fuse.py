@@ -494,6 +494,7 @@ def main(
         smartspim_config["import_data"]["vxl1"],  # X
     ]
     zarr_chunksize = [128, 128, 128]
+    n_workers = utils.get_code_ocean_cpu_limit()
 
     (
         file_convert_start_time,
@@ -508,6 +509,7 @@ def main(
         compression_level=smartspim_config["ome_zarr_params"]["clevel"],
         n_lvls=smartspim_config["ome_zarr_params"]["pyramid_levels"],
         logger=logger,
+        n_workers=n_workers
     )
 
     data_processes.append(
