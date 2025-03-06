@@ -1,5 +1,15 @@
 #!/bin/bash
 
+BIGSTITCHER_FOLDER="BigStitcher-Spark"
+REPO_URL="https://github.com/JaneliaSciComp/BigStitcher-Spark.git"
+
+if [ -d "$FOLDER" ]; then
+    echo "The folder '$BIGSTITCHER_FOLDER' already exists."
+else
+    echo "Cloning repository..."
+    git clone "$REPO_URL"
+fi
+
 #cd /code/BigStitcher-Spark
 cd BigStitcher-Spark
 

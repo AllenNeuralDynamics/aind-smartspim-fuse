@@ -1,6 +1,6 @@
 # hash:sha256:3acfa51f7ad1723d1d2b2c3ddf6a0bd8990ab47fd23241c82ff52fdda8eb9754
 ARG REGISTRY_HOST
-FROM $REGISTRY_HOST/codeocean/ubuntu-desktop-igv-fiji-mambaforge:23.1.0-4-python3.10.12-fiji20231107-1617-firefox120.0-igv2.16.1-guacamole1.5.2-ubuntu22.04
+FROM $REGISTRY_HOST/codeocean/mambaforge3:23.1.0-4-python3.10.12-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG AWS_ACCESS_KEY_ID
