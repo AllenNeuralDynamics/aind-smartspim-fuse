@@ -3,7 +3,7 @@ import os
 
 import torch
 
-from aind_smartspim_fuse import bigstitcher_fusion
+from code.aind_smartspim_fuse import cloudfusion_fusion
 
 
 def run():
@@ -18,7 +18,7 @@ def run():
     print("Multiprocessing start method: ", mp.get_start_method(allow_none=False))
     torch.cuda.empty_cache()
 
-    bigstitcher_fusion.execute_job()
+    cloudfusion_fusion.execute_job()
 
 
 if __name__ == "__main__":

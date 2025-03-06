@@ -1,5 +1,10 @@
-#!/usr/bin/env bash
-set -ex
+#!/bin/bash
 
-# This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
-python -u run_capsule.py "$@"
+#cd /code/BigStitcher-Spark
+cd BigStitcher-Spark
+
+#create output directory with multires folders
+./create-fusion-container-fromfatjar -x /data/bigstitcher.xml -o /results/$OUTPUT_PATH -d UINT16 --preserveAnisotropy --multiRes
+
+#run fusion
+./affine-fusion-container-fromfatjar -o /results/$OUTPUT_PATH -s ZARR
