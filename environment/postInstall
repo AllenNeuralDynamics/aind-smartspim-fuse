@@ -12,8 +12,8 @@ N5_AWS_TAG="255389c" # March 10th 2025
 BUILD_FOLDER="/home"
 ls -d $BUILD_FOLDER/
 
-CORES=16
-MEM_GB=128
+# CORES=16
+# MEM_GB=128
 
 # Create the BUILD_FOLDER if it does not exist
 mkdir -p "$BUILD_FOLDER"
