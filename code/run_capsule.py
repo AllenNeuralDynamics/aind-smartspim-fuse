@@ -373,8 +373,31 @@ def main():
             end_date_time=end_time,
             input_location=str(xml_path),
             output_location=str(output_path),
-            outputs={},
-            code_url="",
+            outputs={
+                "container_params": {
+                    "parameters": [
+                        "-x",
+                        str(modified_xml_path),
+                        "-o",
+                        str(output_dir),
+                        "-d",
+                        "UINT16",
+                        "--preserveAnisotropy",
+                        "--multiRes",
+                    ]
+                },
+                "affine_fusion_params": {
+                    "parameters": [
+                        f"{BIGSTITCHER_PATH}/affine-fusion",
+                        "-o",
+                        str(output_dir),
+                        "-s",
+                        "ZARR",
+                        "--prefetch",
+                    ]
+                },
+            },
+            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
             code_version="0.0.4",
             parameters={},
             notes="Fusing channel with BigStitcher",
