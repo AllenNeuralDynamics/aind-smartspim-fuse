@@ -22,6 +22,12 @@ RUN apt-get update \
         maven=3.6.3-5 \
     && rm -rf /var/lib/apt/lists/*
 
+RUN cd /home && \ 
+    wget https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
+    tar -xzf zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz
+ENV JAVA_HOME "/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64"
+ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64/jre/lib/amd64/server"
+
 RUN conda install -y \
         ca-certificates==2024.7.4 \
         certifi==2024.7.4 \
@@ -35,3 +41,10 @@ RUN cd /.code-server \
 	&& tar -xvf code-server.tar.gz \
 	&& rm code-server.tar.gz \
 	&& ln -s /.code-server/code-server-4.9.0-linux-amd64/bin/code-server  /usr/bin/code-server
+    
+RUN pip install -U --no-cache-dir aind-data-schema==1.4.0
+
+ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
+
+COPY postInstall /
+RUN chmod +x /postInstall && ./postInstall
