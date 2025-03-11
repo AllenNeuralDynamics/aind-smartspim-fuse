@@ -1,28 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -ex
 
-BIGSTITCHER_FOLDER="BigStitcher-Spark"
-REPO_URL="https://github.com/JaneliaSciComp/BigStitcher-Spark.git"
-OUTPUT_PATH="../results"
-SCRIPTS_FOLDER="scripts"
-
-if [ -d "$BIGSTITCHER_FOLDER" ]; then
-    echo "The folder '$BIGSTITCHER_FOLDER' already exists."
-else
-    echo "Cloning repository..."
-    git clone "$REPO_URL" "$BIGSTITCHER_FOLDER"
-fi
-
-#cd /code/BigStitcher-Spark
-cd $SCRIPTS_FOLDER
-echo "Current folder: $(pwd): $(ls)"
-
-chmod +x affine-fusion-fromfatjar
-chmod +x create-fusion-container-fromfatjar
-
-#create output directory with multires folders
-./create-fusion-container-fromfatjar -x /data/bigstitcher.xml -o /results/$OUTPUT_PATH -d UINT16 --preserveAnisotropy --multiRes
-
-echo "Current folder: $(pwd): $(ls)"
-
-#run fusion
-./affine-fusion-fromfatjar -o /results/$OUTPUT_PATH -s ZARR
+# This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
+python -u run_capsule.py "$@"
