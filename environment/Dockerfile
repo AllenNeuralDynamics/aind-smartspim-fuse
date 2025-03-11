@@ -1,6 +1,8 @@
 ARG REGISTRY_HOST
 FROM $REGISTRY_HOST/codeocean/mambaforge3:23.1.0-4-python3.10.12-ubuntu22.04
 
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>"
+
 ARG DEBIAN_FRONTEND=noninteractive
 ARG AWS_ACCESS_KEY_ID
 ARG AWS_DEFAULT_REGION
