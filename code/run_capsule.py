@@ -3,33 +3,32 @@ Module for bigstitcher fusion. It assumes that the input
 is a bigstitcher.xml with the transforms that need to be
 applied for each of the stacks.
 
-Codebase intended for GPU/CPU device. 
+Codebase intended for GPU/CPU device.
 No fallback to CPU written until required.
 
-This fusion worker expects: 
+This fusion worker expects:
 - preprocessed data directory of zarrs to fuse.
 - complementary bigstitcher.xml
 - named xml of the following format: SmartSPIM_dataset_num_datetime_stitching_channel_channel_info
-  This information informs the output location of the multiscaled zarr. 
+  This information informs the output location of the multiscaled zarr.
 """
 
 import json
+import logging
 import multiprocessing as mp
 import os
+import subprocess
 import time
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Tuple
-import logging
-from typing import Optional
-from pathlib import Path
+from typing import List, Optional, Tuple
+
 import psutil
 import yaml
-import os
-import subprocess
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing, ProcessName)
+
 
 def read_json_as_dict(filepath: str) -> dict:
     """
@@ -70,11 +69,7 @@ def modify_xml_removing_nextflow_folder(
     """
     tree = ET.parse(input_xml_path)
     root = tree.getroot()
-    for item in (
-        root.find("SequenceDescription")
-        .find("ImageLoader")
-        .findall("zarr")
-    ):
+    for item in root.find("SequenceDescription").find("ImageLoader").findall("zarr"):
         tile_name = item.text
         print(tile_name)
         item.text = new_data_path
@@ -291,16 +286,17 @@ def execute_command(
         if len(out):
             logger.info(out)
 
+
 def main():
     data_folder = Path(os.path.abspath("../data"))
     results_folder = Path(os.path.abspath("../results"))
     scratch_folder = Path(os.path.abspath("../scratch"))
-    
+
     BIGSTITCHER_PATH = Path(os.getenv("BIGSTITCHER_HOME"))
-    
+
     if not BIGSTITCHER_PATH.exists():
         raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
-    
+
     print(f"BigStitcher path: {BIGSTITCHER_PATH}")
     # It is assumed that these files
     # will be in the data folder
@@ -331,29 +327,43 @@ def main():
         xml_path = data_folder.joinpath("bigstitcher.xml")
         modified_xml_path = scratch_folder.joinpath("bigstitcher.xml")
         channel_num = 0
-        modify_xml_removing_nextflow_folder(xml_path, modified_xml_path, str(input_path))
+        modify_xml_removing_nextflow_folder(
+            xml_path, modified_xml_path, str(input_path)
+        )
 
         output_dir = str(results_folder.joinpath(output_path))
 
         # Create output directory with multires folders
-        process1 = subprocess.run([
-            "bash",
-            f"{BIGSTITCHER_PATH}/create-fusion-container",
-            "-x", str(modified_xml_path),
-            "-o", output_dir,
-            "-d", "UINT16",
-            "--preserveAnisotropy",
-            "--multiRes"
-        ], check=True)
+        process1 = subprocess.run(
+            [
+                "bash",
+                f"{BIGSTITCHER_PATH}/create-fusion-container",
+                "-x",
+                str(modified_xml_path),
+                "-o",
+                output_dir,
+                "-d",
+                "UINT16",
+                "--preserveAnisotropy",
+                "--multiRes",
+            ],
+            check=True,
+        )
 
         # Run fusion
-        process2 = subprocess.run([
-            "bash",
-            f"{BIGSTITCHER_PATH}/affine-fusion",
-            "-o", output_dir,
-            "-s", "ZARR", "--prefetch"
-        ], check=True)
-        
+        process2 = subprocess.run(
+            [
+                "bash",
+                f"{BIGSTITCHER_PATH}/affine-fusion",
+                "-o",
+                output_dir,
+                "-s",
+                "ZARR",
+                "--prefetch",
+            ],
+            check=True,
+        )
+
         end_time = time.time()
 
         data_process = DataProcess(
@@ -367,7 +377,7 @@ def main():
             code_url="",
             code_version="0.0.4",
             parameters={},
-            notes=f"Fusing channel with BigStitcher",
+            notes="Fusing channel with BigStitcher",
         )
 
         generate_processing(
@@ -380,7 +390,7 @@ def main():
 
     else:
         print("No smartspim channels were provided!")
-    
+
 
 if __name__ == "__main__":
     main()

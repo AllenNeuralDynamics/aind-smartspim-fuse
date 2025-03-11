@@ -1,9 +1,8 @@
 import multiprocessing as mp
 import os
+from code.aind_smartspim_fuse import cloudfusion_fusion
 
 import torch
-
-from code.aind_smartspim_fuse import cloudfusion_fusion
 
 
 def run():

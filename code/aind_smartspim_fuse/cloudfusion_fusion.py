@@ -3,14 +3,14 @@ Module for bigstitcher fusion. It assumes that the input
 is a bigstitcher.xml with the transforms that need to be
 applied for each of the stacks.
 
-Codebase intended for GPU/CPU device. 
+Codebase intended for GPU/CPU device.
 No fallback to CPU written until required.
 
-This fusion worker expects: 
+This fusion worker expects:
 - preprocessed data directory of zarrs to fuse.
 - complementary bigstitcher.xml
 - named xml of the following format: SmartSPIM_dataset_num_datetime_stitching_channel_channel_info
-  This information informs the output location of the multiscaled zarr. 
+  This information informs the output location of the multiscaled zarr.
 """
 
 import json
