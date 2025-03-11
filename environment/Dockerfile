@@ -51,7 +51,7 @@ ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
 
 # Copy and run post-install script
 COPY postInstall /
-RUN chmod +x /postInstall && ./postInstall
+RUN chmod +x /postInstall && /bin/bash /postInstall
 
 # Set working directory
 WORKDIR /home
