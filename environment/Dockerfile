@@ -16,7 +16,7 @@ COPY git-askpass /
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
 
-RUN apt-get update --no-cache && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libblosc-dev=1.21.1+ds2-2 \
         maven=3.6.3-5 && \
