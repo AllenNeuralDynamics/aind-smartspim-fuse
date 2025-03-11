@@ -318,10 +318,7 @@ def main():
     # Prep inputs
     # Reference Path
     # ../data/preprocessed_data/Ex_639_Em_667
-    base_path = data_folder.joinpath(
-        "SmartSPIM_753316_2025-03-02_10-39-23/SPIM"
-    )
-    #.joinpath("preprocessed_data")
+    base_path = data_folder.joinpath("preprocessed_data")
 
     smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
 
@@ -361,14 +358,14 @@ def main():
 
         data_process = DataProcess(
             name=ProcessName.IMAGE_TILE_FUSING,
-            software_version="0.0.3",
+            software_version="0.0.4",
             start_date_time=start_time,
             end_date_time=end_time,
             input_location=str(xml_path),
             output_location=str(output_path),
             outputs={},
             code_url="",
-            code_version="0.0.3",
+            code_version="0.0.4",
             parameters={},
             notes=f"Fusing channel with BigStitcher",
         )
