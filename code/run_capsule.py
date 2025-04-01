@@ -314,6 +314,7 @@ def main():
     # Prep inputs
     # Reference Path
     # ../data/preprocessed_data/Ex_639_Em_667
+    print(list(data_folder.glob("*")))
     base_path = data_folder.joinpath("preprocessed_data")
 
     smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
