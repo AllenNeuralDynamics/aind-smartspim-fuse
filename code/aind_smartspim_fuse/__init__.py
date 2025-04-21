@@ -20,4 +20,4 @@ __maintainer_emails__ = [
 ]
 __title__ = "aind-smartspim-destripe"
 __status__ = "Production"  # 'Development' 'Production', 'Beta'
-__pipeline_version__ = "3.0.0"
+__pipeline_version__ = "3.0.1"
