@@ -74,24 +74,40 @@ def modify_xml_with_channel_names(
     """
     tree = ET.parse(input_xml_path)
     root = tree.getroot()
-    
+
     # Find all zgroup elements in the zgroups section
     zgroups_elem = root.find("SequenceDescription").find("ImageLoader").find("zgroups")
-    
+
     if zgroups_elem is not None:
         for zgroup in zgroups_elem.findall("zgroup"):
-            # Get the current path attribute
-            zarr_path = zgroup.get("path")
-            
-            if zarr_path:
-                # Insert channel number before the .ome.zarr extension
-                full_extension = ''.join(Path(zarr_path).suffixes)
-                modified_path = zarr_path.replace(full_extension, f"_ch_{channel_num}{full_extension}")
-                zgroup.set("path", modified_path)
-    
+
+            path_value = zgroup.get("path")
+
+            if path_value:
+                # Remove path attribute
+                del zgroup.attrib["path"]
+
+                # Create a new path element with the modified path
+                full_extension = "".join(Path(path_value).suffixes)
+                modified_path = path_value.replace(
+                    full_extension, f"_ch_{channel_num}{full_extension}"
+                )
+
+                path_elem = ET.SubElement(zgroup, "path")
+                path_elem.text = modified_path
+
+            # Rename tp attribute to timepoint if it exists
+            tp_value = zgroup.get("tp")
+            if tp_value is not None:
+                zgroup.set("timepoint", tp_value)
+                del zgroup.attrib["tp"]
+            elif "timepoint" not in zgroup.attrib:
+                # Add default timepoint if neither tp nor timepoint exists
+                zgroup.set("timepoint", "0")
+
     else:
         raise ValueError(f"{input_xml_path} does not have zgroups")
-    
+
     # Write the modified XML to the output path
     tree.write(modified_xml_path, encoding="utf-8", xml_declaration=True)
 
@@ -263,13 +279,16 @@ def execute_job():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
-    acquisition_dict = read_json_as_dict(f"{data_folder}/acquisition.json")
+    acquisition_dict = read_json_as_dict(
+        f"{data_folder}/acquisition.json"
+    )
     voxel_resolution = get_resolution(acquisition_dict)
 
     # Prep inputs
     # Reference Path
     # ../data/preprocessed_data/Ex_639_Em_667
     base_path = data_folder.joinpath("preprocessed_data")
+    print(base_path)
 
     smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
 
