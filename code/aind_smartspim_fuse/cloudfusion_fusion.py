@@ -89,6 +89,9 @@ def modify_xml_with_channel_names(
                 modified_path = zarr_path.replace(full_extension, f"_ch_{channel_num}{full_extension}")
                 zgroup.set("path", modified_path)
     
+    else:
+        raise ValueError(f"{input_xml_path} does not have zgroups")
+    
     # Write the modified XML to the output path
     tree.write(modified_xml_path, encoding="utf-8", xml_declaration=True)
 
