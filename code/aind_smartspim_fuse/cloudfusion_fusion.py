@@ -74,15 +74,22 @@ def modify_xml_with_channel_names(
     """
     tree = ET.parse(input_xml_path)
     root = tree.getroot()
-    for item in (
-        root.find("SequenceDescription")
-        .find("ImageLoader")
-        .find("zgroups")
-        .findall("zgroup")
-    ):
-        tile_name = item.find("path").text
-        item.find("path").text = tile_name.replace(".zarr", f"_ch_{channel_num}.zarr")
-
+    
+    # Find all zgroup elements in the zgroups section
+    zgroups_elem = root.find("SequenceDescription").find("ImageLoader").find("zgroups")
+    
+    if zgroups_elem is not None:
+        for zgroup in zgroups_elem.findall("zgroup"):
+            # Get the current path attribute
+            zarr_path = zgroup.get("path")
+            
+            if zarr_path:
+                # Insert channel number before the .ome.zarr extension
+                full_extension = ''.join(Path(zarr_path).suffixes)
+                modified_path = zarr_path.replace(full_extension, f"_ch_{channel_num}{full_extension}")
+                zgroup.set("path", modified_path)
+    
+    # Write the modified XML to the output path
     tree.write(modified_xml_path, encoding="utf-8", xml_declaration=True)
 
 
