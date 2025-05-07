@@ -346,8 +346,13 @@ def main():
                 output_dir,
                 "-d",
                 "UINT16",
-                "--preserveAnisotropy",
-                "--multiRes",
+                "-ds", "1,1,1",
+                "-ds", "2,2,1",
+                "-ds", "4,4,1",
+                "-ds", "8,8,2",
+                "-ds", "16,16,4",
+                "-ds", "32,32,8",
+                "--anisotropyFactor", "1"
             ],
             check=True,
         )
@@ -384,8 +389,13 @@ def main():
                         str(output_dir),
                         "-d",
                         "UINT16",
-                        "--preserveAnisotropy",
-                        "--multiRes",
+                        "-ds", "1,1,1",
+                        "-ds", "2,2,1",
+                        "-ds", "4,4,1",
+                        "-ds", "8,8,2",
+                        "-ds", "16,16,4",
+                        "-ds", "32,32,8",
+                        "--anisotropyFactor", "1"
                     ]
                 },
                 "affine_fusion_params": {
