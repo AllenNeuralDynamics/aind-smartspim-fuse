@@ -1,6 +1,6 @@
 import multiprocessing as mp
 import os
-from code.aind_smartspim_fuse import cloudfusion_fusion
+from aind_smartspim_fuse import cloudfusion_fusion
 
 import torch
 
