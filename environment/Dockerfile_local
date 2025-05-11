@@ -1,32 +1,60 @@
+# Base image with CUDA runtime support
 FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
-LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>"
 
+# --------------------- #
+#      METADATA         #
+# --------------------- #
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
+    org.opencontainers.image.title="Image Fusion" \
+    org.opencontainers.image.description="Container for image fusion with CloudFusion." \
+    org.opencontainers.image.version="0.0.4" \
+    org.opencontainers.image.licenses="MIT"
+
+# Set build-time arguments
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CONDA_DIR=/opt/conda
 ARG MINICONDA_INSTALLER=Miniconda3-py310_23.1.0-1-Linux-x86_64.sh
 ARG MINICONDA_SHA256=32d73e1bc33fda089d7cd9ef4c1be542616bd8e437d1f77afeeaf7afdb019787
 
+# --------------------- #
+#   SYSTEM DEPENDENCIES #
+# --------------------- #
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl git gnupg2 locales \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    curl \
+    git \
+    gnupg2 \
+    locales \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL -o ${MINICONDA_INSTALLER} https://repo.anaconda.com/miniconda/${MINICONDA_INSTALLER} && \
-    echo "$MINICONDA_SHA256  $MINICONDA_INSTALLER" | sha256sum -c && \
-    bash ${MINICONDA_INSTALLER} -b -p ${CONDA_DIR} && \
-    rm ${MINICONDA_INSTALLER} && \
-    ${CONDA_DIR}/bin/conda clean --all -f -y && \
-    ln -s "${CONDA_DIR}/etc/profile.d/conda.sh" /etc/profile.d/conda.sh && \
-    echo ". ${CONDA_DIR}/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
-    echo "conda activate base" >> /etc/bash.bashrc
+# --------------------- #
+#     CONDA SETUP       #
+# --------------------- #
+RUN curl -fsSL -o ${MINICONDA_INSTALLER} https://repo.anaconda.com/miniconda/${MINICONDA_INSTALLER} \
+ && echo "$MINICONDA_SHA256  $MINICONDA_INSTALLER" | sha256sum -c - \
+ && bash ${MINICONDA_INSTALLER} -b -p ${CONDA_DIR} \
+ && rm ${MINICONDA_INSTALLER} \
+ && ${CONDA_DIR}/bin/conda clean --all -f -y
 
-RUN ${CONDA_DIR}/bin/conda config --system --set auto_update_conda false && \
-    ${CONDA_DIR}/bin/conda config --system --set show_channel_urls true
+# Conda shell setup
+RUN ln -s "${CONDA_DIR}/etc/profile.d/conda.sh" /etc/profile.d/conda.sh \
+ && echo ". ${CONDA_DIR}/etc/profile.d/conda.sh" >> /etc/bash.bashrc \
+ && echo "conda activate base" >> /etc/bash.bashrc
 
-ENV MPLBACKEND=Agg
-ENV PATH="${CONDA_DIR}/bin:$PATH"
+# Conda configuration
+RUN ${CONDA_DIR}/bin/conda config --system --set auto_update_conda false \
+ && ${CONDA_DIR}/bin/conda config --system --set show_channel_urls true
 
+# Set environment variables
+ENV PATH="${CONDA_DIR}/bin:$PATH" \
+    MPLBACKEND=Agg
+
+# --------------------- #
+#  PYTHON DEPENDENCIES  #
+# --------------------- #
 RUN pip install --no-cache-dir \
     aind-data-schema==1.0.0 \
     ome-zarr==0.9.0 \
     xarray_multiscale==2.1.0 \
-    git+https://github.com/AllenNeuralDynamics/aind-cloud-fusion.git@hybrid-runtime
+    git+https://github.com/AllenNeuralDynamics/aind-cloud-fusion.git@hybrid-runtime \
+    torch==2.1.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
