@@ -50,16 +50,6 @@ ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
 
 WORKDIR /home
 
-# Clone and build n5-aws-s3
-RUN git clone https://github.com/saalfeldlab/n5-aws-s3.git n5-aws-s3 && \
-    cd n5-aws-s3 && \
-    git checkout 255389c && \
-    mvn clean install
-
-# Clone and build BigStitcher-Spark
-RUN git clone https://github.com/JaneliaSciComp/BigStitcher-Spark.git BigStitcher-Spark && \
-    cd BigStitcher-Spark && \
-    git checkout e112363 && \
-    mvn clean package -U -P fatjar && \
-    chmod +x install && \
-    ./install
+# Copy and run post-install script
+COPY postInstall /
+RUN chmod +x /postInstall && /bin/bash /postInstall
