@@ -44,7 +44,7 @@ RUN wget -qO code-server.tar.gz https://github.com/coder/code-server/releases/do
     ln -s /.code-server/bin/code-server /usr/bin/code-server
 
 # Python package
-RUN pip install -U --no-cache-dir aind-data-schema==1.4.0
+RUN pip install -U --no-cache-dir aind-data-schema==1.4.0 psutil
 
 ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
 
