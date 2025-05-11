@@ -1,60 +1,54 @@
-# Base image with CUDA runtime support
-FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+FROM condaforge/miniforge3:latest
 
 # --------------------- #
 #      METADATA         #
 # --------------------- #
 LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
     org.opencontainers.image.title="Image Fusion" \
-    org.opencontainers.image.description="Container for image fusion with CloudFusion." \
+    org.opencontainers.image.description="Container for image fusion with BigStitcher." \
     org.opencontainers.image.version="0.0.4" \
     org.opencontainers.image.licenses="MIT"
 
-# Set build-time arguments
-ARG DEBIAN_FRONTEND=noninteractive
-ARG CONDA_DIR=/opt/conda
-ARG MINICONDA_INSTALLER=Miniconda3-py310_23.1.0-1-Linux-x86_64.sh
-ARG MINICONDA_SHA256=32d73e1bc33fda089d7cd9ef4c1be542616bd8e437d1f77afeeaf7afdb019787
+ENV AWS_REGION=us-west-2
+ENV JAVA_OPTS="-Djava.awt.headless=true"
 
-# --------------------- #
-#   SYSTEM DEPENDENCIES #
-# --------------------- #
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    gnupg2 \
-    locales \
- && rm -rf /var/lib/apt/lists/*
+# System dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libblosc-dev \
+        maven \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
 
-# --------------------- #
-#     CONDA SETUP       #
-# --------------------- #
-RUN curl -fsSL -o ${MINICONDA_INSTALLER} https://repo.anaconda.com/miniconda/${MINICONDA_INSTALLER} \
- && echo "$MINICONDA_SHA256  $MINICONDA_INSTALLER" | sha256sum -c - \
- && bash ${MINICONDA_INSTALLER} -b -p ${CONDA_DIR} \
- && rm ${MINICONDA_INSTALLER} \
- && ${CONDA_DIR}/bin/conda clean --all -f -y
+# Install Java
+WORKDIR /home
+RUN wget -q https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
+    tar -xzf zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
+    rm zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz
 
-# Conda shell setup
-RUN ln -s "${CONDA_DIR}/etc/profile.d/conda.sh" /etc/profile.d/conda.sh \
- && echo ". ${CONDA_DIR}/etc/profile.d/conda.sh" >> /etc/bash.bashrc \
- && echo "conda activate base" >> /etc/bash.bashrc
+ENV JAVA_HOME="/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64"
+ENV PATH="$JAVA_HOME/bin:$PATH"
+ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server"
 
-# Conda configuration
-RUN ${CONDA_DIR}/bin/conda config --system --set auto_update_conda false \
- && ${CONDA_DIR}/bin/conda config --system --set show_channel_urls true
+# Conda dependencies
+RUN conda install -y --freeze-installed \
+        ca-certificates \
+        openssl \
+    && conda clean -ya
 
-# Set environment variables
-ENV PATH="${CONDA_DIR}/bin:$PATH" \
-    MPLBACKEND=Agg
+# Code-server
+WORKDIR /.code-server
+RUN wget -qO code-server.tar.gz https://github.com/coder/code-server/releases/download/v4.9.0/code-server-4.9.0-linux-amd64.tar.gz && \
+    tar -xvf code-server.tar.gz --strip-components=1 && \
+    rm code-server.tar.gz && \
+    ln -s /.code-server/bin/code-server /usr/bin/code-server
 
-# --------------------- #
-#  PYTHON DEPENDENCIES  #
-# --------------------- #
-RUN pip install --no-cache-dir \
-    aind-data-schema==1.0.0 \
-    ome-zarr==0.9.0 \
-    xarray_multiscale==2.1.0 \
-    git+https://github.com/AllenNeuralDynamics/aind-cloud-fusion.git@hybrid-runtime \
-    torch==2.1.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
+# Python package
+RUN pip install -U --no-cache-dir aind-data-schema==1.4.0
+
+ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
+
+COPY postInstall /
+RUN chmod +x /postInstall && /bin/bash /postInstall
+
+WORKDIR /home
