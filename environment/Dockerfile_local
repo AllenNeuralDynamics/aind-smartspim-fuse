@@ -1,26 +1,27 @@
-FROM condaforge/miniforge3:latest
+# Use a public base image
+FROM ubuntu:22.04
 
-# --------------------- #
-#      METADATA         #
-# --------------------- #
-LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
-    org.opencontainers.image.title="Image Fusion" \
-    org.opencontainers.image.description="Container for image fusion with BigStitcher." \
-    org.opencontainers.image.version="0.0.4" \
-    org.opencontainers.image.licenses="MIT"
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>"
 
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
+ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
 
-# System dependencies
+# Install required packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libblosc-dev \
-        maven \
-        wget && \
-    rm -rf /var/lib/apt/lists/*
+        wget \
+        git \
+        curl \
+        libblosc-dev=1.21.1+ds2-2 \
+        maven=3.6.3-5 \
+        python3 \
+        python3-pip \
+        && rm -rf /var/lib/apt/lists/*
 
-# Install Java
+# Download and set up Java
 WORKDIR /home
 RUN wget -q https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
     tar -xzf zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
@@ -30,26 +31,33 @@ ENV JAVA_HOME="/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64"
 ENV PATH="$JAVA_HOME/bin:$PATH"
 ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server"
 
-# Conda dependencies
-RUN conda install -y --freeze-installed \
-        ca-certificates \
-        openssl \
+# Install Miniconda
+RUN wget -qO Miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    bash Miniconda.sh -b -p /opt/conda && \
+    rm Miniconda.sh
+
+# Add conda to PATH
+ENV PATH="/opt/conda/bin:$PATH"
+
+# Install additional conda packages with specific versions
+RUN conda install -y -c conda-forge \
+        ca-certificates=2024.7.4 \
+        openssl=3.3.1 \
     && conda clean -ya
 
-# Code-server
+# Install Python packages
+RUN pip3 install --no-cache-dir aind-data-schema==1.4.0
+
+# Set up code-server
 WORKDIR /.code-server
 RUN wget -qO code-server.tar.gz https://github.com/coder/code-server/releases/download/v4.9.0/code-server-4.9.0-linux-amd64.tar.gz && \
     tar -xvf code-server.tar.gz --strip-components=1 && \
     rm code-server.tar.gz && \
     ln -s /.code-server/bin/code-server /usr/bin/code-server
 
-# Python package
-RUN pip install -U --no-cache-dir aind-data-schema==1.4.0 psutil PyYAML
-
-ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
-
-WORKDIR /home
-
 # Copy and run post-install script
 COPY postInstall /
 RUN chmod +x /postInstall && /bin/bash /postInstall
+
+# Set working directory
+WORKDIR /home
