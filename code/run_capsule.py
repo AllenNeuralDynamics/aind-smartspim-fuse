@@ -343,7 +343,7 @@ def main():
         process1 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/create-fusion-container",
+                f"./create-fusion-container",
                 "-x",
                 str(modified_xml_path),
                 "-o",
@@ -367,7 +367,7 @@ def main():
         process2 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/affine-fusion",
+                f"./affine-fusion",
                 "-o",
                 output_dir,
                 "-s",
