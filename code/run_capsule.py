@@ -293,6 +293,10 @@ def main():
     scratch_folder = Path(os.path.abspath("../scratch"))
 
     BIGSTITCHER_PATH = Path(os.getenv("BIGSTITCHER_HOME"))
+    env = os.environ.copy()
+    print("Running from cwd:", os.getcwd())
+    print("BIGSTITCHER_PATH:", BIGSTITCHER_PATH)
+    print("Env JAVA_HOME:", os.environ.get("JAVA_HOME"))
 
     if not BIGSTITCHER_PATH.exists():
         raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
@@ -339,7 +343,7 @@ def main():
         process1 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/create-fusion-container",
+                f"./create-fusion-container",
                 "-x",
                 str(modified_xml_path),
                 "-o",
@@ -355,13 +359,15 @@ def main():
                 "--anisotropyFactor", "1"
             ],
             check=True,
+            cwd=BIGSTITCHER_PATH,
+            env=env,
         )
 
         # Run fusion
         process2 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/affine-fusion",
+                f"./affine-fusion",
                 "-o",
                 output_dir,
                 "-s",
@@ -369,6 +375,8 @@ def main():
                 "--prefetch",
             ],
             check=True,
+            cwd=BIGSTITCHER_PATH,
+            env=env,
         )
 
         end_time = time.time()
