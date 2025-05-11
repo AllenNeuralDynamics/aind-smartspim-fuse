@@ -302,6 +302,7 @@ def main():
         raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
 
     print(f"BigStitcher path: {BIGSTITCHER_PATH}")
+    print(f"Os environ: {os.environ}")
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
