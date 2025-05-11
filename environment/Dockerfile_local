@@ -46,7 +46,7 @@ RUN conda install -y -c conda-forge \
     && conda clean -ya
 
 # Install Python packages
-RUN pip3 install --no-cache-dir aind-data-schema==1.4.0
+RUN pip3 install --no-cache-dir aind-data-schema==1.4.0 psutil PyYAML
 
 # Set up code-server
 WORKDIR /.code-server
