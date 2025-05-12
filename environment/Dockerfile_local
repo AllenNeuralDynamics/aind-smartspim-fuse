@@ -63,4 +63,5 @@ COPY postInstall /
 RUN chmod +x /postInstall && /bin/bash /postInstall
 
 # Set working directory
-WORKDIR /home
+ENV HOME=/root
+WORKDIR $HOME
