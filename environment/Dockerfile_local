@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
 ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
+ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER/target/*"
 
 # Install required packages
 RUN apt-get update && \
