@@ -303,6 +303,17 @@ def main():
 
     print(f"BigStitcher path: {BIGSTITCHER_PATH}")
     print(f"Os environ: {os.environ}")
+    check = subprocess.run(
+        [
+            "bash",
+            f"./create-fusion-container",
+        ],
+        check=False,
+        cwd=BIGSTITCHER_PATH,
+        env=env,
+    )
+    print("Check: ", check)
+
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -352,11 +363,10 @@ def main():
                 "-d",
                 "UINT16",
                 "-ds", "1,1,1",
-                "-ds", "2,2,1",
-                "-ds", "4,4,1",
-                "-ds", "8,8,2",
-                "-ds", "16,16,4",
-                "-ds", "32,32,8",
+                "-ds", "2,2,2",
+                "-ds", "4,4,4",
+                "-ds", "8,8,8",
+                "-ds", "16,16,16",
                 "--anisotropyFactor", "1"
             ],
             check=True,
