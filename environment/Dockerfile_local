@@ -8,7 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
 ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
-ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER/target/*"
+ENV N5_AWS_FOLDER_HOME=/home/n5-aws-s3
+ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER_HOME/target/*"
 
 # Install required packages
 RUN apt-get update && \
@@ -31,7 +32,7 @@ RUN wget -q https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x
 
 ENV JAVA_HOME="/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64"
 ENV PATH="$JAVA_HOME/bin:$PATH"
-ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server"
+ENV LD_LIBRARY_PATH="$JAVA_HOME/jre/lib/amd64/server"
 
 # Install Miniconda
 RUN wget -qO Miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
