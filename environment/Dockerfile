@@ -51,7 +51,7 @@ RUN wget -qO code-server.tar.gz https://github.com/coder/code-server/releases/do
 RUN pip install -U --no-cache-dir \
     aind-data-schema==1.4.0 \
     psutil==5.9.5 \
-    PyYAMLp==5.4.1
+    PyYAML==5.4.1
 
 # Copy and run post-install script
 COPY postInstall /

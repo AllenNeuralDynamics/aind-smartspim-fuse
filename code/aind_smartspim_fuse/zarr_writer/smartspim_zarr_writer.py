@@ -30,7 +30,9 @@ from ome_zarr.writer import write_multiscales_metadata
 from skimage.io import imread as sk_imread
 
 from .blocked_zarr_writer import BlockedArrayWriter
-from .zarr_utilities import *
+from .zarr_utilities import (ArrayLike, PathLike, pad_array_n_d,
+                             parallel_read_chunked_stitched_multichannel_image,
+                             read_image_directory_structure)
 
 
 def _build_ome(
@@ -427,14 +429,14 @@ def wavelength_to_hex(wavelength: int) -> int:
     return hex_val
 
 
-def add_leading_dim(data: ArrayLike):
+def add_leading_dim(data):
     """
     Adds a leading dimension
 
     Parameters
     ------------------------
 
-    data: ArrayLike
+    data
         Input array that will have the
         leading dimension
 
@@ -509,7 +511,7 @@ def smartspim_channel_zarr_writer(
 
     Parameters
     ----------
-    image_data: ArrayLike
+    image_data
         Lazy readed SmartSPIM channel data
 
     output_path: PathLike
@@ -614,10 +616,12 @@ def smartspim_channel_zarr_writer(
     )
 
     client = Client(cluster)
-    channel_name_stem = Path(channel_name).stem
+    _ = Path(channel_name).stem
     performance_report_path = f"{output_path}/report_{channel_name}.html"
 
     start_time = time.time()
+
+    pyramid_group = None
     # Writing zarr and performance report
     with performance_report(filename=performance_report_path):
         logger.info(f"{'='*40}Writing channel {channel_name}{'='*40}")

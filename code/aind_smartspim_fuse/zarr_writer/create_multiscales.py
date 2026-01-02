@@ -426,9 +426,10 @@ def compute_multiscale(
 
     # Writing zarr and performance report
     #     with performance_report(filename=performance_report_path):
+    pyramid_group = None
     for i in range(1, n_levels):
         print(f"Writing multiscale: {i} in path {zarr_group}")
-        if i != 1:
+        if i != 1 and pyramid_group is not None:
             previous_scale = da.from_zarr(pyramid_group, orig_lazy_data.chunks)
 
         # Writing zarr

@@ -288,7 +288,11 @@ def main():
     results_folder = Path(os.path.abspath("../results"))
     scratch_folder = Path(os.path.abspath("../scratch"))
 
-    BIGSTITCHER_PATH = Path(os.getenv("BIGSTITCHER_HOME"))
+    BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
+    if not BIGSTITCHER_PATH:
+        raise ValueError("Please, set the BIGSTITCHER_HOME env value.")
+
+    BIGSTITCHER_PATH = Path(BIGSTITCHER_PATH)
     env = os.environ.copy()
     print("Running from cwd:", os.getcwd())
     print("BIGSTITCHER_PATH:", BIGSTITCHER_PATH)
@@ -347,16 +351,26 @@ def main():
                 output_dir,
                 "-d",
                 "UINT16",
-                "-ds", "1,1,1",
-                "-ds", "2,2,2",
-                "-ds", "4,4,4",
-                "-ds", "8,8,8",
-                "-ds", "16,16,16",
-                "-ds", "32,32,32",
-                "-ds", "64,64,64",
-                "-ds", "128,128,128",
-                "-ds", "256,256,256",
-                "--anisotropyFactor", "1"
+                "-ds",
+                "1,1,1",
+                "-ds",
+                "2,2,2",
+                "-ds",
+                "4,4,4",
+                "-ds",
+                "8,8,8",
+                "-ds",
+                "16,16,16",
+                "-ds",
+                "32,32,32",
+                "-ds",
+                "64,64,64",
+                "-ds",
+                "128,128,128",
+                "-ds",
+                "256,256,256",
+                "--anisotropyFactor",
+                "1",
             ],
             check=True,
             cwd=BIGSTITCHER_PATH,
@@ -397,16 +411,26 @@ def main():
                         str(output_dir),
                         "-d",
                         "UINT16",
-                        "-ds", "1,1,1",
-                        "-ds", "2,2,2",
-                        "-ds", "4,4,4",
-                        "-ds", "8,8,8",
-                        "-ds", "16,16,16",
-                        "-ds", "32,32,32",
-                        "-ds", "64,64,64",
-                        "-ds", "128,128,128",
-                        "-ds", "256,256,256",
-                        "--anisotropyFactor", "1"
+                        "-ds",
+                        "1,1,1",
+                        "-ds",
+                        "2,2,2",
+                        "-ds",
+                        "4,4,4",
+                        "-ds",
+                        "8,8,8",
+                        "-ds",
+                        "16,16,16",
+                        "-ds",
+                        "32,32,32",
+                        "-ds",
+                        "64,64,64",
+                        "-ds",
+                        "128,128,128",
+                        "-ds",
+                        "256,256,256",
+                        "--anisotropyFactor",
+                        "1",
                     ]
                 },
                 "affine_fusion_params": {
