@@ -15,6 +15,10 @@ COPY git-askpass /
 # Set environment variables
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
+ENV HOME="/root"
+ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
+ENV N5_AWS_FOLDER_HOME=/home/n5-aws-s3
+ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER_HOME/target/*"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -23,14 +27,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Download and set up Java
-WORKDIR /home
+WORKDIR $HOME
 RUN wget -q https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
     tar -xzf zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
-    rm zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz
+    rm zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64.tar.gz && \
+    mv zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64 /opt/java
 
-ENV JAVA_HOME="/home/zulu8.80.0.17-ca-fx-jdk8.0.422-linux_x64"
+ENV JAVA_HOME="/opt/java"
 ENV PATH="$JAVA_HOME/bin:$PATH"
-ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server"
 
 RUN conda install -y --freeze-installed \
         ca-certificates=2024.7.4 \
@@ -44,14 +48,13 @@ RUN wget -qO code-server.tar.gz https://github.com/coder/code-server/releases/do
     ln -s /.code-server/bin/code-server /usr/bin/code-server
 
 # Install Python aind-data-schema
-RUN pip install -U --no-cache-dir aind-data-schema==1.4.0
-
-# Setting BigStitcher Home dir that will be installed in postInstall
-ENV BIGSTITCHER_HOME=/home/BigStitcher-Spark
+RUN pip install -U --no-cache-dir \
+    aind-data-schema==1.4.0 \
+    psutil==5.9.5 \
+    PyYAML==5.4.1
 
 # Copy and run post-install script
 COPY postInstall /
-RUN chmod +x /postInstall && /bin/bash /postInstall
+RUN /bin/bash /postInstall
 
-# Set working directory
-WORKDIR /home
+WORKDIR $HOME

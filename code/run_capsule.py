@@ -3,9 +3,6 @@ Module for bigstitcher fusion. It assumes that the input
 is a bigstitcher.xml with the transforms that need to be
 applied for each of the stacks.
 
-Codebase intended for GPU/CPU device.
-No fallback to CPU written until required.
-
 This fusion worker expects:
 - preprocessed data directory of zarrs to fuse.
 - complementary bigstitcher.xml
@@ -19,7 +16,6 @@ import multiprocessing as mp
 import os
 import subprocess
 import time
-import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -292,12 +288,21 @@ def main():
     results_folder = Path(os.path.abspath("../results"))
     scratch_folder = Path(os.path.abspath("../scratch"))
 
-    BIGSTITCHER_PATH = Path(os.getenv("BIGSTITCHER_HOME"))
+    BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
+    if not BIGSTITCHER_PATH:
+        raise ValueError("Please, set the BIGSTITCHER_HOME env value.")
+
+    BIGSTITCHER_PATH = Path(BIGSTITCHER_PATH)
+    env = os.environ.copy()
+    print("Running from cwd:", os.getcwd())
+    print("BIGSTITCHER_PATH:", BIGSTITCHER_PATH)
+    print("Env JAVA_HOME:", os.environ.get("JAVA_HOME"))
 
     if not BIGSTITCHER_PATH.exists():
         raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
 
     print(f"BigStitcher path: {BIGSTITCHER_PATH}")
+    print(f"Os environ: {os.environ}")
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -339,24 +344,44 @@ def main():
         process1 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/create-fusion-container",
+                f"./create-fusion-container",
                 "-x",
                 str(modified_xml_path),
                 "-o",
                 output_dir,
                 "-d",
                 "UINT16",
-                "--preserveAnisotropy",
-                "--multiRes",
+                "-ds",
+                "1,1,1",
+                "-ds",
+                "2,2,2",
+                "-ds",
+                "4,4,4",
+                "-ds",
+                "8,8,8",
+                "-ds",
+                "16,16,16",
+                "-ds",
+                "32,32,32",
+                "-ds",
+                "64,64,64",
+                "-ds",
+                "128,128,128",
+                "-ds",
+                "256,256,256",
+                "--anisotropyFactor",
+                "1",
             ],
             check=True,
+            cwd=BIGSTITCHER_PATH,
+            env=env,
         )
 
         # Run fusion
         process2 = subprocess.run(
             [
                 "bash",
-                f"{BIGSTITCHER_PATH}/affine-fusion",
+                f"./affine-fusion",
                 "-o",
                 output_dir,
                 "-s",
@@ -364,6 +389,8 @@ def main():
                 "--prefetch",
             ],
             check=True,
+            cwd=BIGSTITCHER_PATH,
+            env=env,
         )
 
         end_time = time.time()
@@ -384,8 +411,26 @@ def main():
                         str(output_dir),
                         "-d",
                         "UINT16",
-                        "--preserveAnisotropy",
-                        "--multiRes",
+                        "-ds",
+                        "1,1,1",
+                        "-ds",
+                        "2,2,2",
+                        "-ds",
+                        "4,4,4",
+                        "-ds",
+                        "8,8,8",
+                        "-ds",
+                        "16,16,16",
+                        "-ds",
+                        "32,32,32",
+                        "-ds",
+                        "64,64,64",
+                        "-ds",
+                        "128,128,128",
+                        "-ds",
+                        "256,256,256",
+                        "--anisotropyFactor",
+                        "1",
                     ]
                 },
                 "affine_fusion_params": {
