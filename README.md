@@ -1,32 +1,46 @@
 # aind-smartspim-fuse
 
-Repository that hosts the fusing step applied to the smartspim datasets. The current option at the moment is fusion with TeraStitcher.
+Repository that hosts the fusing step applied to SmartSPIM datasets.
+The primary fusion algorithm is **BigStitcher** (`run_capsule.py`).
+Alternative runners for **TeraStitcher** (`run_terastitcher_capsule.py`) and
+**CloudFusion** (`run_cloudfusion.py`) are also available.
 
-The processing steps for this capsule are:
+## BigStitcher pipeline (primary, `run_capsule.py`)
 
-1. We read the volume_alignments.xml file which contains the image transformation steps to align the whole volume.
-2. We validate capsule inputs in the data folder. The needed files are: "volume_alignments.xml", "processing_manifest.json" and "data_description.json".
-    - volume_alignments.xml: This file contains the image transformations applied to the stacks. By default, we are using TeraStitcher.
-    - processing_manifest.json: This file contains the image processing steps and some extra metadata necessary to fuse datasets.
-    - data_description.json: This file contains metadata about the dataset itself. Please, check the [aind-data-schema](https://github.com/AllenNeuralDynamics/aind-data-schema) repository to know more about this file.
-3. We create the fusion folder structure, generate new data description and copy all necessary metadata.
-4. We start the chunked fusion using TeraStitcher. Please, check the default parameters defined on the params folder of this repository.
-5. OMEZarr File Format Convertion: We configured TeraStitcher to output blocks of size (256, 256, 256) in most of the brain and in the border with whatever is left for that specific brain. These images are in TIFF format and need to be converted to OMEZarr for cloud visualization. In order to to this, we read the entire fused volume lazily, rechunk it to chunks of (128, 128, 128) and write it in a BigChunk approach. With BigChunk, our experiments show that to avoid a very large dask graph we can take n chunks (e.g., 4 chunks of 256) and then write those down. This is a good approach for very large datasets > 1 TB.
-6. Generate neuroglancer link.
+Required input in `../data/`:
+- `bigstitcher.xml` — BigStitcher-format XML with tile transforms
+- `preprocessed_data/Ex_*_Em_*/` — preprocessed zarr tile data
 
-> Note: This repository is intented to work with Code Ocean pipelines. It means that we are executing a single instance per dataset channel and the generated folder structure will be:
+Processing steps:
 
-fusion_{channel_name}:
-    - OMEZarr: Folder where we will save the fused data.
-    - metadata: Generated metadata for the fusion in this channel.
+1. Validate capsule inputs — confirms `bigstitcher.xml` is present.
+2. Locate the SmartSPIM channel directory under `preprocessed_data/`.
+3. Rewrite the XML to point at the actual data path on disk
+   (`modify_xml_removing_nextflow_folder`).
+4. Run `create-fusion-container` (BigStitcher) to create the output zarr
+   structure with nine downsampling levels (1×–256×, UINT16).
+5. Run `affine-fusion` (BigStitcher) to fill the zarr store with fused data.
+6. Write AIND processing metadata (`processing.json`) to `../results/`.
 
-It is important to mention that there's another folder that is created. This is an intermediate fusion with the 3D fused chunked tiffs and it's pointing to the scratch folder in Code Ocean by default.
+Output in `../results/`:
+```
+Ex_*_Em_*.zarr/        # fused OME-Zarr (multi-resolution)
+processing.json        # AIND processing provenance
+```
 
-## Documentation
-You can access the documentation for this module [here]().
+## Alternative runners
 
-## TeraStitcher Documentation
-You can download TeraStitcher documentation from [here](https://unicampus365-my.sharepoint.com/:b:/g/personal/g_iannello_unicampus_it/EYT9KbapjBdGvTAD2_MdbKgB5gY_h9rlvHzqp6mUNqVhIw?e=s8GrFC)
+| Runner | Algorithm | Key dependency |
+|--------|-----------|----------------|
+| `run_terastitcher_capsule.py` | TeraStitcher | `terastitcher` CLI + MPI |
+| `run_cloudfusion.py` | CloudFusion | `aind_cloud_fusion` + GPU (PyTorch) |
+
+TeraStitcher additionally requires `volume_alignments.xml`,
+`processing_manifest.json`, `data_description.json`, and `acquisition.json`
+in `../data/`.
+
+## TeraStitcher documentation
+You can download TeraStitcher documentation from [here](https://unicampus365-my.sharepoint.com/:b:/g/personal/g_iannello_unicampus_it/EYT9KbapjBdGvTAD2_MdbKgB5gY_h9rlvHzqp6mUNqVhIw?e=s8GrFC).
 
 ## Contributing
 

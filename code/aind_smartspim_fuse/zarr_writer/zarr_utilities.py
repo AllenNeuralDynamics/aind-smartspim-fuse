@@ -253,14 +253,12 @@ def concatenate_dask_arrays(arr_1: ArrayLike, arr_2: ArrayLike, axis: int) -> Ar
             if shape_arr_1[shape_dim_idx] > shape_arr_2[shape_dim_idx] and (
                 shape_dim_idx - dims != axis
             ):
-                raise ValueError(
-                    f"""
+                raise ValueError(f"""
                     Array 1 {shape_arr_1} must have
                      a smaller shape than array 2 {shape_arr_2}
                      except for the axis dimension {shape_dim_idx}
                      {dims} {shape_dim_idx - dims} {axis}
-                    """
-                )
+                    """)
 
             if shape_arr_1[shape_dim_idx] != shape_arr_2[shape_dim_idx]:
                 slices.append(slice(0, shape_arr_1[shape_dim_idx]))
@@ -274,12 +272,10 @@ def concatenate_dask_arrays(arr_1: ArrayLike, arr_2: ArrayLike, axis: int) -> Ar
     try:
         res = concatenate([arr_1, arr_2], axis=axis)
     except ValueError:
-        raise ValueError(
-            f"""
+        raise ValueError(f"""
             Unable to cancat arrays - Shape 1:
              {shape_arr_1} shape 2: {shape_arr_2}
-            """
-        )
+            """)
 
     return res
 

@@ -147,7 +147,7 @@ def get_code_ocean_cpu_limit():
     aws_batch_job_id = os.environ.get("AWS_BATCH_JOB_ID")
 
     if co_cpus:
-        return co_cpus
+        return int(co_cpus)
     if aws_batch_job_id:
         return 1
     with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as fp:
