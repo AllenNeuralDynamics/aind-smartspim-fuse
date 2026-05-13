@@ -2,8 +2,8 @@
 FROM ubuntu:22.04
 
 LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
-    org.opencontainers.image.title="Image Preprocessing" \
-    org.opencontainers.image.description="Container for flatfield and stripe correction." \
+    org.opencontainers.image.title="Image Fusion" \
+    org.opencontainers.image.description="Container for image fusion." \
     org.opencontainers.image.version="0.0.6" \
     org.opencontainers.image.licenses="MIT"
 
