@@ -416,57 +416,6 @@ def generate_new_channel_alignment_xml(
     return modified_mergexml_path
 
 
-def copy_available_metadata(
-    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
-) -> List[PathLike]:
-    """
-    Copies all the valid metadata from the aind-data-schema
-    repository that exists in a given path.
-
-    Parameters
-    -----------
-    input_path: PathLike
-        Path where the metadata is located
-
-    output_path: PathLike
-        Path where we will copy the found
-        metadata
-
-    ignore_files: List[str]
-        List with the filenames of the metadata
-        that we need to ignore from the aind-data-schema
-
-    Returns
-    --------
-    List[PathLike]
-        List with the metadata files that
-        were copied
-    """
-
-    # We get all the valid filenames from the aind core model
-    metadata_to_find = [
-        cls.default_filename() for cls in AindCoreModel.__subclasses__()
-    ]
-
-    # Making sure the paths are pathlib objects
-    input_path = Path(input_path)
-    output_path = Path(output_path)
-
-    found_metadata = []
-
-    for metadata_filename in metadata_to_find:
-        metadata_filename = input_path.joinpath(metadata_filename)
-
-        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
-            found_metadata.append(metadata_filename)
-
-            # Copying file to output path
-            output_filename = output_path.joinpath(metadata_filename.name)
-            copy_file(metadata_filename, output_filename)
-
-    return found_metadata
-
-
 def find_smartspim_channels(
     path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"
 ):
@@ -577,7 +526,6 @@ def create_logger(output_log_path: PathLike) -> logging.Logger:
         force=True,
     )
 
-    logging.disable("DEBUG")
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
@@ -869,7 +817,7 @@ def get_code_ocean_cpu_limit():
     aws_batch_job_id = os.environ.get("AWS_BATCH_JOB_ID")
 
     if co_cpus:
-        return co_cpus
+        return int(co_cpus)
     if aws_batch_job_id:
         return 1
 
@@ -881,7 +829,7 @@ def get_code_ocean_cpu_limit():
 
         container_cpus = cfs_quota_us // cfs_period_us
 
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         container_cpus = 0
 
     # For physical machine, the `cfs_quota_us` could be '-1'
@@ -897,7 +845,7 @@ def print_system_information(logger: logging.Logger):
     logger: logging.Logger
         Logger object
     """
-    co_memory = int(os.environ.get("CO_MEMORY"))
+    co_memory = int(os.environ.get("CO_MEMORY", 0))
     # System info
     sep = "=" * 40
     logger.info(f"{sep} Code Ocean Information {sep}")

@@ -1,7 +1,11 @@
 # Use a public base image
 FROM ubuntu:22.04
 
-LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>"
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
+    org.opencontainers.image.title="Image Preprocessing" \
+    org.opencontainers.image.description="Container for flatfield and stripe correction." \
+    org.opencontainers.image.version="0.0.6" \
+    org.opencontainers.image.licenses="MIT"
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -42,14 +46,20 @@ RUN wget -qO Miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-
 # Add conda to PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
-# Install additional conda packages with specific versions
-RUN conda install -y -c conda-forge \
-        ca-certificates=2024.7.4 \
-        openssl=3.3.1 \
+# Install additional conda packages with specific versions.
+# --override-channels restricts conda to only the channels listed here,
+# bypassing the default Anaconda channels (pkgs/main, pkgs/r) that require
+# Terms of Service acceptance in conda >= 24.3.
+RUN conda install -y --override-channels -c conda-forge \
+        ca-certificates \
+        openssl \
     && conda clean -ya
 
 # Install Python packages
-RUN pip3 install --no-cache-dir aind-data-schema==1.4.0 psutil PyYAML
+RUN pip3 install --no-cache-dir aind-data-schema==1.4.0 \
+    psutil==5.9.5 \
+    PyYAMLp==5.4.1 \
+    argschema==3.0.4
 
 # Set up code-server
 WORKDIR /.code-server

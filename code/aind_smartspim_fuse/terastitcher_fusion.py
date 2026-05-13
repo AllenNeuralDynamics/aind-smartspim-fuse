@@ -412,7 +412,7 @@ def main(
     output_fused_path = Path(output_fused_path)
     intermediate_fused_folder = Path(intermediate_fused_folder)
 
-    if not output_fused_path.exists():
+    if not transforms_xml_path.exists():
         raise FileNotFoundError(f"XML path {transforms_xml_path} does not exist")
 
     # Looking for SmartSPIM channels on data folder
