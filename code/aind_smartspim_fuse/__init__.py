@@ -18,6 +18,7 @@ __maintainers__ = ["Camilo Laiton"]
 __maintainer_emails__ = [
     "camilo.laiton@alleninstitute.org",
 ]
-__title__ = "aind-smartspim-destripe"
+__title__ = "aind-smartspim-fuse"
+__pipeline_name__ = "SmartSPIM Pipeline"
 __status__ = "Production"  # 'Development' 'Production', 'Beta'
 __pipeline_version__ = "5.0.0"
