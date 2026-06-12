@@ -16,16 +16,21 @@ import os
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import psutil
 import yaml
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
-                                              Processing, ProcessName)
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import (DataProcess, ProcessName,
+                                              ProcessStage)
+from aind_smartspim_fuse import (__maintainers__, __pipeline_name__,
+                                 __pipeline_version__, __title__, __url__,
+                                 __version__)
+from aind_smartspim_fuse.utils.utils import (ResourceMonitor,
+                                             generate_processing)
 from schlog import setup_logging
-
-from aind_smartspim_fuse import __pipeline_name__, __title__, __version__, __pipeline_version__
 
 logger = logging.getLogger(__name__)
 
@@ -180,51 +185,6 @@ def get_resolution(acquisition_config) -> Tuple[int]:
     return x, y, z
 
 
-def generate_processing(
-    data_processes: List[DataProcess],
-    dest_processing: str,
-    prefix: str,
-    processor_full_name: str,
-    pipeline_version: str,
-):
-    """
-    Generates data description for the output folder.
-
-    Parameters
-    ------------------------
-
-    data_processes: List[dict]
-        List with the processes aplied in the pipeline.
-
-    dest_processing: PathLike
-        Path where the processing file will be placed.
-
-    processor_full_name: str
-        Person in charged of running the pipeline
-        for this data asset
-
-    pipeline_version: str
-        Terastitcher pipeline version
-
-    """
-    # flake8: noqa: E501
-    processing_pipeline = PipelineProcess(
-        data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        note="Metadata for fusion step",
-    )
-
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
-        notes="This processing only contains metadata about fusion \
-            and needs to be compiled with other steps at the end",
-    )
-
-    processing.write_standard_file(output_directory=dest_processing, prefix=prefix)
-
-
 def execute_command_helper(command: str, print_command: bool = False) -> None:
     """
     Execute a shell command.
@@ -355,7 +315,8 @@ def main():
         )
 
         if len(smartspim_channel):
-            start_time = time.time()
+            start_time = datetime.now(timezone.utc)
+            resource_monitor = ResourceMonitor(interval_seconds=30.0).start()
 
             input_path = smartspim_channel[0]
             output_path = results_folder.joinpath(f"{input_path.name}.zarr")
@@ -421,16 +382,25 @@ def main():
                 env=env,
             )
 
-            end_time = time.time()
+            resource_monitor.stop()
+            end_time = datetime.now(timezone.utc)
 
             data_process = DataProcess(
-                name=ProcessName.IMAGE_TILE_FUSING,
-                software_version=__version__,
+                process_type=ProcessName.IMAGE_TILE_FUSING,
+                name="Image tile fusing",
+                stage=ProcessStage.PROCESSING,
+                code=Code(
+                    url=__url__,
+                    name=__title__,
+                    version=__version__,
+                ),
+                experimenters=__maintainers__,
+                pipeline_name=__pipeline_name__,
                 start_date_time=start_time,
                 end_date_time=end_time,
-                input_location=str(xml_path),
-                output_location=str(output_path),
-                outputs={
+                output_path=str(output_path),
+                output_parameters={
+                    "input_location": str(xml_path),
                     "container_params": {
                         "parameters": [
                             "-x",
@@ -472,18 +442,19 @@ def main():
                         ]
                     },
                 },
-                code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
-                code_version=__version__,
-                parameters={},
+                resources=resource_monitor.to_resource_usage(
+                    cpu_cores=int(get_code_ocean_cpu_limit())
+                ),
                 notes="Fusing channel with BigStitcher",
             )
 
             generate_processing(
                 data_processes=[data_process],
                 dest_processing=results_folder,
-                prefix=Path(output_path).stem,
-                processor_full_name="Camilo Laiton",
+                pipeline_name=__pipeline_name__,
                 pipeline_version=__pipeline_version__,
+                pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+                prefix=Path(output_path).stem,
             )
 
         else:
