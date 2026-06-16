@@ -56,7 +56,9 @@ RUN conda install -y --override-channels -c conda-forge \
     && conda clean -ya
 
 # Install Python packages
-RUN pip3 install --no-cache-dir aind-data-schema==1.4.0 \
+RUN pip3 install --no-cache-dir \
+    aind-data-schema==2.8.0 \
+    "aind-data-schema-models>=5.7.1,<6" \
     psutil==5.9.5 \
     PyYAMLp==5.4.1 \
     argschema==3.0.4 \
