@@ -30,7 +30,7 @@ from aind_smartspim_fuse import (__maintainers__, __pipeline_name__,
                                  __version__)
 from aind_smartspim_fuse.utils.utils import (ResourceMonitor,
                                              generate_processing)
-from schlog import setup_logging
+from log_schema import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +249,7 @@ def execute_command(
 
 def main():
     """Fuses the preprocessed SmartSPIM channel with BigStitcher"""
-    process_name = f"{__title__}"
+    process_name = {__title__}
     setup_logging(
         model={
             "pipeline_name": __pipeline_name__,
