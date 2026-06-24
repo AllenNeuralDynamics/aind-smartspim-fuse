@@ -62,7 +62,9 @@ RUN pip3 install --no-cache-dir \
     psutil==5.9.5 \
     PyYAMLp==5.4.1 \
     argschema==3.0.4 \
-    log-schema==0.2.10.dev1
+    log-schema==0.2.10.dev1 \
+    matplotlib==3.11.0 \
+    xmltodict==1.0.4
 
 # Set up code-server
 WORKDIR /.code-server
