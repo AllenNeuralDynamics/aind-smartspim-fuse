@@ -28,6 +28,7 @@ from aind_data_schema.core.processing import (DataProcess, ProcessName,
 from aind_smartspim_fuse import (__maintainers__, __pipeline_name__,
                                  __pipeline_version__, __title__, __url__,
                                  __version__)
+from aind_smartspim_fuse.utils import metadata_compat
 from aind_smartspim_fuse.utils.utils import (ResourceMonitor,
                                              generate_processing)
 from log_schema import setup_logging
@@ -153,37 +154,6 @@ def get_code_ocean_cpu_limit():
     container_cpus = cfs_quota_us // cfs_period_us
     # For physical machine, the `cfs_quota_us` could be '-1'
     return psutil.cpu_count(logical=False) if container_cpus < 1 else container_cpus
-
-
-def get_resolution(acquisition_config) -> Tuple[int]:
-    """
-    Gets the image resolution from the acquisiton.json
-
-    Parameters
-    ----------
-    acquisition_config: dict
-        Dictionary with the acquisition metadata
-
-    Returns
-    -------
-    Tuple[float]
-        Tuple of floats with the image resolution
-        in XYZ order
-    """
-    # Grabbing a tile with metadata from acquisition - we assume all dataset
-    # was acquired with the same resolution
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-
-    return x, y, z
-
 
 def execute_command_helper(command: str, print_command: bool = False) -> None:
     """
