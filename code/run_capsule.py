@@ -57,7 +57,7 @@ def read_json_as_dict(filepath: str) -> dict:
                 dictionary = json.load(json_file)
 
         except UnicodeDecodeError:
-            print("Error reading json with utf-8, trying different approach")
+            logger.warning("Error reading json with utf-8, trying decode with errors ignored")
             # This might lose data, verify with Jeff the json encoding
             with open(filepath, "rb") as json_file:
                 data = json_file.read()
@@ -219,7 +219,7 @@ def execute_command(
 
 def main():
     """Fuses the preprocessed SmartSPIM channel with BigStitcher"""
-    process_name = {__title__}
+    process_name = f"{__title__}"
     setup_logging(
         model={
             "pipeline_name": __pipeline_name__,
@@ -231,11 +231,22 @@ def main():
 
     stage_start_time = time.monotonic()
     dataset_name = None
+    asset_name = None
+    channel_name = None
 
     try:
         data_folder = Path(os.path.abspath("../data"))
         results_folder = Path(os.path.abspath("../results"))
         scratch_folder = Path(os.path.abspath("../scratch"))
+
+        logger.info(
+            "BigStitcher fusion started",
+            extra={
+                "event_type": "stage_start",
+                "data_folder": str(data_folder),
+                "results_folder": str(results_folder),
+            },
+        )
 
         BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
         if not BIGSTITCHER_PATH:
@@ -273,14 +284,21 @@ def main():
         smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
 
         if len(smartspim_channel):
-            dataset_name = smartspim_channel[0].name
+            channel_name = smartspim_channel[0].name
+
+        # The dataset identity comes from the data_description when the
+        # asset is mounted; this read only feeds the log fields below
+        data_description_dict = read_json_as_dict(f"{data_folder}/data_description.json")
+        asset_name = data_description_dict.get("name")
+        dataset_name = metadata_compat.get_raw_dataset_name(asset_name)
 
         logger.info(
-            "BigStitcher fusion started",
+            f"Processing derived asset {asset_name} - channel {channel_name}",
             extra={
-                "event_type": "stage_start",
+                "event_type": "dataset_resolved",
                 "dataset_name": dataset_name,
-                "results_folder": str(results_folder),
+                "asset_name": asset_name,
+                "channel": channel_name,
             },
         )
 
@@ -428,7 +446,14 @@ def main():
             )
 
         else:
-            logger.warning("No smartspim channels were provided!")
+            logger.warning(
+                "No smartspim channels were provided!",
+                extra={
+                    "dataset_name": dataset_name,
+                    "asset_name": asset_name,
+                    "status": "no_channels",
+                },
+            )
 
         duration_seconds = round(time.monotonic() - stage_start_time, 3)
         logger.info(
@@ -436,6 +461,8 @@ def main():
             extra={
                 "event_type": "stage_complete",
                 "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
                 "duration_seconds": duration_seconds,
             },
         )
@@ -448,6 +475,8 @@ def main():
             extra={
                 "event_type": "stage_failure",
                 "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
                 "duration_seconds": duration_seconds,
             },
         )
