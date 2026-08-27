@@ -467,13 +467,14 @@ def main():
             },
         )
 
-    except Exception:
+    except Exception as e:
         duration_seconds = round(time.monotonic() - stage_start_time, 3)
         logger.error(
             "BigStitcher fusion failed",
             exc_info=True,
             extra={
                 "event_type": "stage_failure",
+                "error": f"{type(e).__name__}: {e}",
                 "dataset_name": dataset_name,
                 "asset_name": asset_name,
                 "channel": channel_name,
