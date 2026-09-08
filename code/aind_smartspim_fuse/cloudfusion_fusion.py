@@ -35,7 +35,7 @@ from aind_data_schema.core.processing import (DataProcess, ProcessName,
 
 from . import (__maintainers__, __pipeline_name__, __pipeline_version__,
                __title__, __url__, __version__)
-from .utils import utils
+from .utils import metadata_compat, utils
 from .zarr_writer.create_multiscales import compute_multiscale
 
 
@@ -154,17 +154,7 @@ def get_resolution(acquisition_config) -> Tuple[int]:
     """
     # Grabbing a tile with metadata from acquisition - we assume all dataset
     # was acquired with the same resolution
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-
-    return x, y, z
+    return metadata_compat.get_voxel_resolution(acquisition_config)
 
 
 def execute_job():

@@ -28,6 +28,7 @@ from aind_data_schema.core.processing import (DataProcess, ProcessName,
 from aind_smartspim_fuse import (__maintainers__, __pipeline_name__,
                                  __pipeline_version__, __title__, __url__,
                                  __version__)
+from aind_smartspim_fuse.utils import metadata_compat
 from aind_smartspim_fuse.utils.utils import (ResourceMonitor,
                                              generate_processing)
 from log_schema import setup_logging
@@ -56,7 +57,7 @@ def read_json_as_dict(filepath: str) -> dict:
                 dictionary = json.load(json_file)
 
         except UnicodeDecodeError:
-            print("Error reading json with utf-8, trying different approach")
+            logger.warning("Error reading json with utf-8, trying decode with errors ignored")
             # This might lose data, verify with Jeff the json encoding
             with open(filepath, "rb") as json_file:
                 data = json_file.read()
@@ -154,37 +155,6 @@ def get_code_ocean_cpu_limit():
     # For physical machine, the `cfs_quota_us` could be '-1'
     return psutil.cpu_count(logical=False) if container_cpus < 1 else container_cpus
 
-
-def get_resolution(acquisition_config) -> Tuple[int]:
-    """
-    Gets the image resolution from the acquisiton.json
-
-    Parameters
-    ----------
-    acquisition_config: dict
-        Dictionary with the acquisition metadata
-
-    Returns
-    -------
-    Tuple[float]
-        Tuple of floats with the image resolution
-        in XYZ order
-    """
-    # Grabbing a tile with metadata from acquisition - we assume all dataset
-    # was acquired with the same resolution
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-
-    return x, y, z
-
-
 def execute_command_helper(command: str, print_command: bool = False) -> None:
     """
     Execute a shell command.
@@ -249,7 +219,7 @@ def execute_command(
 
 def main():
     """Fuses the preprocessed SmartSPIM channel with BigStitcher"""
-    process_name = {__title__}
+    process_name = f"{__title__}"
     setup_logging(
         model={
             "pipeline_name": __pipeline_name__,
@@ -261,11 +231,22 @@ def main():
 
     stage_start_time = time.monotonic()
     dataset_name = None
+    asset_name = None
+    channel_name = None
 
     try:
         data_folder = Path(os.path.abspath("../data"))
         results_folder = Path(os.path.abspath("../results"))
         scratch_folder = Path(os.path.abspath("../scratch"))
+
+        logger.info(
+            "BigStitcher fusion started",
+            extra={
+                "event_type": "stage_start",
+                "data_folder": str(data_folder),
+                "results_folder": str(results_folder),
+            },
+        )
 
         BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
         if not BIGSTITCHER_PATH:
@@ -303,14 +284,21 @@ def main():
         smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
 
         if len(smartspim_channel):
-            dataset_name = smartspim_channel[0].name
+            channel_name = smartspim_channel[0].name
+
+        # The dataset identity comes from the data_description when the
+        # asset is mounted; this read only feeds the log fields below
+        data_description_dict = read_json_as_dict(f"{data_folder}/data_description.json")
+        asset_name = data_description_dict.get("name")
+        dataset_name = metadata_compat.get_raw_dataset_name(asset_name)
 
         logger.info(
-            "BigStitcher fusion started",
+            f"Processing derived asset {asset_name} - channel {channel_name}",
             extra={
-                "event_type": "stage_start",
+                "event_type": "dataset_resolved",
                 "dataset_name": dataset_name,
-                "results_folder": str(results_folder),
+                "asset_name": asset_name,
+                "channel": channel_name,
             },
         )
 
@@ -458,7 +446,14 @@ def main():
             )
 
         else:
-            logger.warning("No smartspim channels were provided!")
+            logger.warning(
+                "No smartspim channels were provided!",
+                extra={
+                    "dataset_name": dataset_name,
+                    "asset_name": asset_name,
+                    "status": "no_channels",
+                },
+            )
 
         duration_seconds = round(time.monotonic() - stage_start_time, 3)
         logger.info(
@@ -466,18 +461,23 @@ def main():
             extra={
                 "event_type": "stage_complete",
                 "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
                 "duration_seconds": duration_seconds,
             },
         )
 
-    except Exception:
+    except Exception as e:
         duration_seconds = round(time.monotonic() - stage_start_time, 3)
         logger.error(
             "BigStitcher fusion failed",
             exc_info=True,
             extra={
                 "event_type": "stage_failure",
+                "error": f"{type(e).__name__}: {e}",
                 "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
                 "duration_seconds": duration_seconds,
             },
         )

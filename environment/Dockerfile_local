@@ -18,6 +18,7 @@ ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER_HOME/target/*"
 # Install required packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
         wget \
         git \
         curl \
@@ -50,10 +51,24 @@ ENV PATH="/opt/conda/bin:$PATH"
 # --override-channels restricts conda to only the channels listed here,
 # bypassing the default Anaconda channels (pkgs/main, pkgs/r) that require
 # Terms of Service acceptance in conda >= 24.3.
-RUN conda install -y --override-channels -c conda-forge \
+RUN conda create -y \
+        --override-channels \
+        -c conda-forge \
+        -n py313 \
+        python=3.13 \
         ca-certificates \
         openssl \
     && conda clean -ya
+
+# Make Python 3.13 the default environment
+ENV PATH="/opt/conda/envs/py313/bin:/opt/conda/bin:$PATH"
+
+# Verify
+RUN python --version && \
+    python3 --version && \
+    which python && \
+    which python3 && \
+    python -m pip --version
 
 # Install Python packages
 RUN pip3 install --no-cache-dir \
