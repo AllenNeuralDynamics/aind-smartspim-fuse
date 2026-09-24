@@ -5,14 +5,20 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 try:
     from aind_smartspim_fuse.utils.utils import (
-        check_path_instance, find_smartspim_channels, generate_timestamp,
-        get_code_ocean_cpu_limit, get_size, helper_additional_params_command,
-        helper_build_param_value_command, read_json_as_dict, save_dict_as_json,
-        wavelength_to_hex)
+        check_path_instance,
+        find_smartspim_channels,
+        generate_timestamp,
+        get_code_ocean_cpu_limit,
+        get_size,
+        helper_additional_params_command,
+        helper_build_param_value_command,
+        read_json_as_dict,
+        save_dict_as_json,
+        wavelength_to_hex,
+    )
 
     UTILS_AVAILABLE = True
 except ImportError:
@@ -252,9 +258,7 @@ class TestFindSmartspimChannels(unittest.TestCase):
 class TestGetCodeOceanCpuLimit(unittest.TestCase):
     def setUp(self):
         # Clear relevant env vars before each test
-        self._orig = {
-            k: os.environ.pop(k, None) for k in ("CO_CPUS", "AWS_BATCH_JOB_ID")
-        }
+        self._orig = {k: os.environ.pop(k, None) for k in ("CO_CPUS", "AWS_BATCH_JOB_ID")}
 
     def tearDown(self):
         for k, v in self._orig.items():

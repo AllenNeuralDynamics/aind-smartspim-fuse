@@ -9,8 +9,7 @@ __author_emails__ = [
 ]
 __license__ = "MIT"
 __description__ = (
-    "Algorithm to fuse image stacks together "
-    "by using the transforms computed in the stitching step"
+    "Algorithm to fuse image stacks together by using the transforms computed in the stitching step"
 )
 __url__ = "https://github.com/AllenNeuralDynamics/aind-smartspim-fuse"
 

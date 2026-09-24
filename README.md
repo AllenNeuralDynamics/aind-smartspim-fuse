@@ -1,5 +1,7 @@
 # aind-smartspim-fuse
 
+![support](https://img.shields.io/badge/support-supported-brightgreen)
+
 Repository that hosts the fusing step applied to SmartSPIM datasets.
 The primary fusion algorithm is **BigStitcher** (`run_capsule.py`).
 Alternative runners for **TeraStitcher** (`run_terastitcher_capsule.py`) and

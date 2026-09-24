@@ -4,15 +4,16 @@ These tests verify that the functions assemble the correct CLI strings and
 write expected output files. They do not execute any external process.
 """
 
-import os
 import tempfile
 import unittest
 from pathlib import Path
 
 try:
     from aind_smartspim_fuse.terastitcher_fusion import (
-        build_parallel_command, terastitcher_import_cmd,
-        terastitcher_merge_cmd)
+        build_parallel_command,
+        terastitcher_import_cmd,
+        terastitcher_merge_cmd,
+    )
 
     TERAS_AVAILABLE = True
 except ImportError:
@@ -76,9 +77,7 @@ class TestBuildParallelCommand(unittest.TestCase):
         self.assertIn("--hostfile /my/hosts", cmd)
 
     def test_includes_additional_params(self):
-        cmd = build_parallel_command(
-            _cpu_params(additional=["overwrite_zeros"]), "/tool.py"
-        )
+        cmd = build_parallel_command(_cpu_params(additional=["overwrite_zeros"]), "/tool.py")
         self.assertIn("--overwrite_zeros", cmd)
 
     def test_empty_additional_params_still_produces_valid_cmd(self):

@@ -21,9 +21,12 @@ import psutil
 import xmltodict
 from aind_data_schema.base import DataCoreModel
 from aind_data_schema.components.identifiers import Code
-from aind_data_schema.core.processing import (DataProcess, Processing,
-                                              ResourceTimestamped,
-                                              ResourceUsage)
+from aind_data_schema.core.processing import (
+    DataProcess,
+    Processing,
+    ResourceTimestamped,
+    ResourceUsage,
+)
 from aind_data_schema_models.units import MemoryUnit
 
 from .._shared.types import PathLike
@@ -110,7 +113,7 @@ def copy_file(input_filename: PathLike, output_filename: PathLike):
 
     except PermissionError:
         raise PermissionError(
-            f"Not able to copy the file. Please, check the permissions in the output path."
+            "Not able to copy the file. Please, check the permissions in the output path."
         )
 
 
@@ -162,9 +165,7 @@ def helper_additional_params_command(params: List[str]) -> str:
     return additional_params
 
 
-def helper_build_param_value_command(
-    params: dict, equal_con: Optional[bool] = True
-) -> str:
+def helper_build_param_value_command(params: dict, equal_con: Optional[bool] = True) -> str:
     """
     Helper function to build a command based on key:value pairs.
 
@@ -241,9 +242,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
     if print_command:
         print(command)
 
-    popen = subprocess.Popen(
-        command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     for stdout_line in iter(popen.stdout.readline, ""):
         yield str(stdout_line).strip()
     popen.stdout.close()
@@ -252,9 +251,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
         raise subprocess.CalledProcessError(return_code, command)
 
 
-def execute_command(
-    command: str, logger: logging.Logger, verbose: Optional[bool] = False
-):
+def execute_command(command: str, logger: logging.Logger, verbose: Optional[bool] = False):
     """
     Execute a shell command with a given configuration.
 
@@ -387,21 +384,15 @@ def generate_new_channel_alignment_xml(
 
     xml_dict = xmltodict.parse(xml_file)
 
-    new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = str(
-        channel_path
-    )
-    new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = str(
-        teras_mdata_bin
-    )
+    new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = str(channel_path)
+    new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = str(teras_mdata_bin)
 
     xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = new_stacks_folder
     xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = new_bin_folder
 
     new_channel_name = re.search(channel_regex, str(channel_path)).group()
 
-    modified_mergexml_path = str(
-        metadata_folder.joinpath(f"xml_merging_{new_channel_name}.xml")
-    )
+    modified_mergexml_path = str(metadata_folder.joinpath(f"xml_merging_{new_channel_name}.xml"))
 
     data_to_write = xmltodict.unparse(xml_dict, pretty=True)
 
@@ -420,9 +411,7 @@ def generate_new_channel_alignment_xml(
     return modified_mergexml_path
 
 
-def find_smartspim_channels(
-    path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"
-):
+def find_smartspim_channels(path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"):
     """
     Find image channels of a dataset using a regular expression.
 
@@ -476,9 +465,7 @@ def copy_available_metadata(
     """
 
     # We get all the valid filenames from the aind core model
-    metadata_to_find = [
-        cls.default_filename() for cls in DataCoreModel.__subclasses__()
-    ]
+    metadata_to_find = [cls.default_filename() for cls in DataCoreModel.__subclasses__()]
 
     # Making sure the paths are pathlib objects
     input_path = Path(input_path)
@@ -571,14 +558,12 @@ def create_fusion_folder_structure(
         create_folder(dest_dir=output_fused_path)
 
     if not intermediate_fused_folder.exists():
-        logging.info(
-            f"Path {intermediate_fused_folder} does not exists. We're creating one."
-        )
+        logging.info(f"Path {intermediate_fused_folder} does not exists. We're creating one.")
         create_folder(dest_dir=intermediate_fused_folder)
 
     output_fused_path = output_fused_path.joinpath(f"fusion_{channel_name}")
     fusion_folder = output_fused_path.joinpath("OMEZarr")
-    metadata_folder = output_fused_path.joinpath(f"metadata")
+    metadata_folder = output_fused_path.joinpath("metadata")
     teras_fusion_folder = intermediate_fused_folder.joinpath("teras_stitched")
 
     create_folder(fusion_folder)
@@ -617,14 +602,10 @@ class ResourceMonitor:
         while not self._stop_event.is_set():
             now = datetime.now(timezone.utc)
             self._cpu_usage.append(
-                ResourceTimestamped(
-                    timestamp=now, usage=psutil.cpu_percent(interval=None)
-                )
+                ResourceTimestamped(timestamp=now, usage=psutil.cpu_percent(interval=None))
             )
             self._ram_usage.append(
-                ResourceTimestamped(
-                    timestamp=now, usage=psutil.virtual_memory().percent
-                )
+                ResourceTimestamped(timestamp=now, usage=psutil.virtual_memory().percent)
             )
             self._stop_event.wait(self._interval)
 
@@ -728,9 +709,7 @@ def generate_processing(
     processing.write_standard_file(output_directory=dest_processing, prefix=prefix)
 
 
-def save_dict_as_json(
-    filename: str, dictionary: dict, verbose: Optional[bool] = False
-) -> None:
+def save_dict_as_json(filename: str, dictionary: dict, verbose: Optional[bool] = False) -> None:
     """
     Saves a dictionary as a json file.
 
@@ -968,9 +947,7 @@ def print_system_information(logger: logging.Logger):
     logger.info(f"{sep} Boot Time {sep}")
     boot_time_timestamp = psutil.boot_time()
     bt = datetime.fromtimestamp(boot_time_timestamp)
-    logger.info(
-        f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
-    )
+    logger.info(f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}")
 
     # CPU info
     logger.info(f"{sep} CPU Info {sep}")

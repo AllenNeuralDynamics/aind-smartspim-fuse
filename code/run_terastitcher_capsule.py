@@ -48,14 +48,10 @@ def get_data_config(
     data_description_path = Path(f"{data_folder}/{data_description_path}")
 
     if not processing_manifest_path.exists():
-        raise ValueError(
-            f"Please, check processing manifest path: {processing_manifest_path}"
-        )
+        raise ValueError(f"Please, check processing manifest path: {processing_manifest_path}")
 
     if not data_description_path.exists():
-        raise ValueError(
-            f"Please, check data description path: {data_description_path}"
-        )
+        raise ValueError(f"Please, check data description path: {data_description_path}")
 
     derivatives_dict = utils.read_json_as_dict(str(processing_manifest_path))
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
@@ -98,9 +94,7 @@ def set_up_pipeline_parameters(
     # was acquired with the same resolution
     tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
 
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
+    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
 
     x = float(scale_transform[0])
     y = float(scale_transform[1])
@@ -165,9 +159,7 @@ def run():
     missing_files = validate_capsule_inputs(required_input_elements)
 
     if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
+        raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
 
     pipeline_config, smartspim_dataset_name, acquisition_dict = get_data_config(
         data_folder=data_folder,

@@ -18,19 +18,21 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import psutil
-import yaml
 from aind_data_schema.components.identifiers import Code
-from aind_data_schema.core.processing import (DataProcess, ProcessName,
-                                              ProcessStage)
-from aind_smartspim_fuse import (__maintainers__, __pipeline_name__,
-                                 __pipeline_version__, __title__, __url__,
-                                 __version__)
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
+from aind_smartspim_fuse import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
 from aind_smartspim_fuse.utils import metadata_compat
-from aind_smartspim_fuse.utils.utils import (ResourceMonitor,
-                                             generate_processing)
+from aind_smartspim_fuse.utils.utils import ResourceMonitor, generate_processing
 from log_schema import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -155,6 +157,7 @@ def get_code_ocean_cpu_limit():
     # For physical machine, the `cfs_quota_us` could be '-1'
     return psutil.cpu_count(logical=False) if container_cpus < 1 else container_cpus
 
+
 def execute_command_helper(command: str, print_command: bool = False) -> None:
     """
     Execute a shell command.
@@ -178,9 +181,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
     if print_command:
         print(command)
 
-    popen = subprocess.Popen(
-        command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     for stdout_line in iter(popen.stdout.readline, ""):
         yield str(stdout_line).strip()
     popen.stdout.close()
@@ -189,9 +190,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
         raise subprocess.CalledProcessError(return_code, command)
 
 
-def execute_command(
-    command: str, logger: logging.Logger, verbose: Optional[bool] = False
-):
+def execute_command(command: str, logger: logging.Logger, verbose: Optional[bool] = False):
     """
     Execute a shell command with a given configuration.
 
@@ -270,9 +269,7 @@ def main():
         missing_files = validate_capsule_inputs(required_input_elements)
 
         if len(missing_files):
-            raise ValueError(
-                f"We miss the following files in the capsule input: {missing_files}"
-            )
+            raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
 
         # Prep inputs
         # Reference Path
@@ -311,9 +308,7 @@ def main():
 
             xml_path = data_folder.joinpath("bigstitcher.xml")
             modified_xml_path = scratch_folder.joinpath("bigstitcher.xml")
-            modify_xml_removing_nextflow_folder(
-                xml_path, modified_xml_path, str(input_path)
-            )
+            modify_xml_removing_nextflow_folder(xml_path, modified_xml_path, str(input_path))
 
             output_dir = str(results_folder.joinpath(output_path))
 

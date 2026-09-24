@@ -30,11 +30,16 @@ import torch
 import yaml
 import zarr
 from aind_data_schema.components.identifiers import Code
-from aind_data_schema.core.processing import (DataProcess, ProcessName,
-                                              ProcessStage)
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
 
-from . import (__maintainers__, __pipeline_name__, __pipeline_version__,
-               __title__, __url__, __version__)
+from . import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
 from .utils import metadata_compat, utils
 from .zarr_writer.create_multiscales import compute_multiscale
 
@@ -70,19 +75,14 @@ def read_json_as_dict(filepath: str) -> dict:
     return dictionary
 
 
-def modify_xml_with_channel_names(
-    input_xml_path: str, modified_xml_path: str, channel_num: int
-):
+def modify_xml_with_channel_names(input_xml_path: str, modified_xml_path: str, channel_num: int):
     """
     Channel names are an xml convention.
     """
     tree = ET.parse(input_xml_path)
     root = tree.getroot()
     for item in (
-        root.find("SequenceDescription")
-        .find("ImageLoader")
-        .find("zgroups")
-        .findall("zgroup")
+        root.find("SequenceDescription").find("ImageLoader").find("zgroups").findall("zgroup")
     ):
         tile_name = item.find("path").text
         item.find("path").text = tile_name.replace(".zarr", f"_ch_{channel_num}.zarr")
@@ -172,9 +172,7 @@ def execute_job():
     missing_files = validate_capsule_inputs(required_input_elements)
 
     if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
+        raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
 
     acquisition_dict = read_json_as_dict(f"{data_folder}/acquisition.json")
     voxel_resolution = get_resolution(acquisition_dict)

@@ -10,11 +10,16 @@ from pathlib import Path
 from typing import Optional
 
 from aind_data_schema.components.identifiers import Code
-from aind_data_schema.core.processing import (DataProcess, ProcessName,
-                                              ProcessStage)
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
 
-from . import (__maintainers__, __pipeline_name__, __pipeline_version__,
-               __title__, __url__, __version__)
+from . import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
 from ._shared.types import PathLike
 from .utils import utils
 from .zarr_writer import smartspim_zarr_writer as spim_zarr
@@ -61,9 +66,7 @@ def terastitcher_import_cmd(
 
     output_path = xml_output_path.joinpath(f"xml_import_{channel_name}.xml")
 
-    import_params["mdata_bin"] = str(
-        xml_output_path.joinpath(f"mdata_{channel_name}.bin")
-    )
+    import_params["mdata_bin"] = str(xml_output_path.joinpath(f"mdata_{channel_name}.bin"))
 
     output_folder = f"--projout={output_path}"
 
@@ -114,9 +117,7 @@ def build_parallel_command(params: dict, tool: PathLike) -> str:
 
     # Additional params provided in the configuration
     if len(cpu_params["additional_params"]):
-        additional_params = utils.helper_additional_params_command(
-            cpu_params["additional_params"]
-        )
+        additional_params = utils.helper_additional_params_command(cpu_params["additional_params"])
 
     hostfile = f"--hostfile {cpu_params['hostfile']}"
 
@@ -192,9 +193,7 @@ def terasticher_fusion(
     smartspim_config: dict,
     logger: logging.Logger,
     channel_regex: Optional[str] = r"Ex_([0-9]*)_Em_([0-9]*)$",
-    code_url: Optional[
-        str
-    ] = "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
+    code_url: Optional[str] = "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
 ):
     """
     This function fuses a SmartSPIM dataset.
@@ -253,9 +252,7 @@ def terasticher_fusion(
     # parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
     #     "Parastitcher.py"
     # )
-    paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath(
-        "paraconverter.py"
-    )
+    paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath("paraconverter.py")
 
     channel_path = data_folder.joinpath(channel_name)
 
@@ -298,9 +295,7 @@ def terasticher_fusion(
             output_path=str(metadata_folder),
             output_parameters={
                 "input_location": str(channel_path),
-                "output_file": str(
-                    metadata_folder.joinpath(f"xml_import_{channel_name}.xml")
-                ),
+                "output_file": str(metadata_folder.joinpath(f"xml_import_{channel_name}.xml")),
                 "import_params": smartspim_config["import_data"],
             },
             resources=import_resource_monitor.to_resource_usage(
@@ -491,10 +486,10 @@ def main(
     profile_process.daemon = True
     profile_process.start()
 
-    logger.info(f"{'='*40} SmartSPIM Stitching {'='*40}")
+    logger.info(f"{'=' * 40} SmartSPIM Stitching {'=' * 40}")
     logger.info(f"Output folders - Stitch metadata: {metadata_folder}")
 
-    logger.info(f"{'='*40} SmartSPIM Fusion {'='*40}")
+    logger.info(f"{'=' * 40} SmartSPIM Fusion {'=' * 40}")
 
     logger.info(
         f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"

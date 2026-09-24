@@ -139,9 +139,7 @@ def _compute_scales(
                 ]
             )
             if translation is not None:
-                transforms[-1].append(
-                    {"type": "translation", "translation": translation}
-                )
+                transforms[-1].append({"type": "translation", "translation": translation})
             lastz = int(np.ceil(lastz / scale_factor[0]))
             lasty = int(np.ceil(lasty / scale_factor[1]))
             lastx = int(np.ceil(lastx / scale_factor[2]))
@@ -159,9 +157,7 @@ def _compute_scales(
     return transforms, chunk_sizes
 
 
-def _get_axes_5d(
-    time_unit: str = "millisecond", space_unit: str = "micrometer"
-) -> List[Dict]:
+def _get_axes_5d(time_unit: str = "millisecond", space_unit: str = "micrometer") -> List[Dict]:
     """Generate the list of axes.
 
     Parameters
@@ -316,9 +312,7 @@ def write_ome_ngff_metadata(
     coordinate_transformations, chunk_opts = _compute_scales(
         n_lvls, scale_factors, voxel_size, arr.chunksize, arr.shape, None
     )
-    fmt.validate_coordinate_transformations(
-        arr.ndim, n_lvls, coordinate_transformations
-    )
+    fmt.validate_coordinate_transformations(arr.ndim, n_lvls, coordinate_transformations)
     # Setting coordinate transfomations
     datasets = [{"path": str(i)} for i in range(n_lvls)]
     if coordinate_transformations is not None:
@@ -435,16 +429,15 @@ def compute_multiscale(
         # Writing zarr
         block_shape = list(
             BlockedArrayWriter.get_block_shape(
-                arr=previous_scale, target_size_mb=12800  # 51200,
+                arr=previous_scale,
+                target_size_mb=12800,  # 51200,
             )
         )
 
         # Formatting to 5D block shape
         block_shape = ([1] * (5 - len(block_shape))) + block_shape
 
-        new_scale_factor = (
-            [1] * (len(previous_scale.shape) - len(scale_factor))
-        ) + scale_factor
+        new_scale_factor = ([1] * (len(previous_scale.shape) - len(scale_factor))) + scale_factor
 
         previous_scale_pyramid = compute_pyramid(
             data=previous_scale,

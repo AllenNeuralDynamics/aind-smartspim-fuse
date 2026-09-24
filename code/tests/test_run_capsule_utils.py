@@ -72,9 +72,7 @@ class TestValidateCapsuleInputs(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_multiple_missing_all_returned(self):
-        result = run_capsule.validate_capsule_inputs(
-            ["/no/a.xml", "/no/b.xml", "/no/c.xml"]
-        )
+        result = run_capsule.validate_capsule_inputs(["/no/a.xml", "/no/b.xml", "/no/c.xml"])
         self.assertEqual(len(result), 3)
 
 
@@ -147,11 +145,7 @@ class TestGetResolution(unittest.TestCase):
     def test_uses_only_first_tile(self):
         config = self._acquisition(x=1.0)
         config["tiles"].append(
-            {
-                "coordinate_transformations": [
-                    {"type": "scale", "scale": ["9.9", "9.9", "9.9"]}
-                ]
-            }
+            {"coordinate_transformations": [{"type": "scale", "scale": ["9.9", "9.9", "9.9"]}]}
         )
         x, _, _ = run_capsule.get_resolution(config)
         self.assertAlmostEqual(x, 1.0)
@@ -192,9 +186,7 @@ class TestReadJsonAsDictRunCapsule(unittest.TestCase):
 @unittest.skipUnless(RUN_CAPSULE_AVAILABLE, "run_capsule not importable")
 class TestGetCodeOceanCpuLimitRunCapsule(unittest.TestCase):
     def setUp(self):
-        self._orig = {
-            k: os.environ.pop(k, None) for k in ("CO_CPUS", "AWS_BATCH_JOB_ID")
-        }
+        self._orig = {k: os.environ.pop(k, None) for k in ("CO_CPUS", "AWS_BATCH_JOB_ID")}
 
     def tearDown(self):
         for k, v in self._orig.items():
