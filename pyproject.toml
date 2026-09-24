@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aind_smartspim_fuse"
+description = "Fusing step for SmartSPIM datasets using BigStitcher, TeraStitcher, or CloudFusion."
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Allen Institute for Neural Dynamics"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3"
+]
+dynamic = ["version", "readme"]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "coverage",
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.setuptools.packages.find]
+where = ["code"]
+
+[tool.setuptools.dynamic]
+version = {attr = "aind_smartspim_fuse.__version__"}
+readme = {file = ["README.md"]}
+
+[tool.pytest.ini_options]
+testpaths = ["code/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+omit = ["*__init__*"]
+source = ["aind_smartspim_fuse", "tests"]
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["*.ipynb", ".venv", "*.egg-info", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+# ruff format enforces line-length structurally; E501 only fires on tokens it
+# cannot split (URLs, long string literals), so the two rules conflict.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
