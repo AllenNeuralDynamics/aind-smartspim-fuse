@@ -110,13 +110,11 @@ def read_image_directory_structure(folder_dir: PathLike) -> dict:
                 rows = natsorted(os.listdir(possible_col))
 
                 for row in rows:
-                    possible_row = (
-                        channel_paths[channel_idx].joinpath(col).joinpath(row)
-                    )
+                    possible_row = channel_paths[channel_idx].joinpath(col).joinpath(row)
 
                     if os.path.isdir(possible_row):
-                        directory_structure[channel_paths[channel_idx]][col][row] = (
-                            natsorted(os.listdir(possible_row))
+                        directory_structure[channel_paths[channel_idx]][col][row] = natsorted(
+                            os.listdir(possible_row)
                         )
 
     return directory_structure
@@ -210,9 +208,9 @@ def fix_image_diff_dims(
             return new_arr
 
         n_pad = tuple(tuple((0, dim)) for dim in zeros_dim)
-        new_arr = pad(
-            new_arr, pad_width=n_pad, mode="constant", constant_values=0
-        ).rechunk(chunksize)
+        new_arr = pad(new_arr, pad_width=n_pad, mode="constant", constant_values=0).rechunk(
+            chunksize
+        )
 
     return new_arr
 
@@ -253,14 +251,12 @@ def concatenate_dask_arrays(arr_1: ArrayLike, arr_2: ArrayLike, axis: int) -> Ar
             if shape_arr_1[shape_dim_idx] > shape_arr_2[shape_dim_idx] and (
                 shape_dim_idx - dims != axis
             ):
-                raise ValueError(
-                    f"""
+                raise ValueError(f"""
                     Array 1 {shape_arr_1} must have
                      a smaller shape than array 2 {shape_arr_2}
                      except for the axis dimension {shape_dim_idx}
                      {dims} {shape_dim_idx - dims} {axis}
-                    """
-                )
+                    """)
 
             if shape_arr_1[shape_dim_idx] != shape_arr_2[shape_dim_idx]:
                 slices.append(slice(0, shape_arr_1[shape_dim_idx]))
@@ -274,12 +270,10 @@ def concatenate_dask_arrays(arr_1: ArrayLike, arr_2: ArrayLike, axis: int) -> Ar
     try:
         res = concatenate([arr_1, arr_2], axis=axis)
     except ValueError:
-        raise ValueError(
-            f"""
+        raise ValueError(f"""
             Unable to cancat arrays - Shape 1:
              {shape_arr_1} shape 2: {shape_arr_2}
-            """
-        )
+            """)
 
     return res
 
@@ -351,14 +345,10 @@ def read_chunked_stitched_image_per_channel(
                     dtype = None
 
                 try:
-                    slice_name = directory_structure[channel_name][row_name][
-                        column_name
-                    ][slice_pos]
+                    slice_name = directory_structure[channel_name][row_name][column_name][slice_pos]
 
                     filepath = str(
-                        channel_name.joinpath(row_name)
-                        .joinpath(column_name)
-                        .joinpath(slice_name)
+                        channel_name.joinpath(row_name).joinpath(column_name).joinpath(slice_name)
                     )
 
                     new_arr = lazy_tiff_reader(filepath, dtype=dtype, shape=shape)
@@ -369,7 +359,6 @@ def read_chunked_stitched_image_per_channel(
                         last_col = False
 
                 except ValueError:
-                    print("No valid image in ", slice_pos)
                     valid_image = False
 
                 if valid_image:
@@ -458,7 +447,6 @@ def channel_parallel_reading(
 
     cols = list(directory_structure.values())[0]
     n_images = len(list(list(cols.values())[0].values())[0])
-    #     print(f"n_images: {n_images}")
 
     channel_paths = list(directory_structure.keys())
     dask_array = None
@@ -473,13 +461,9 @@ def channel_parallel_reading(
             start_slice=0,
             end_slice=n_images,
         )[0]
-        print(f"No need for parallel reading... {dask_array}")
 
     else:
         images_per_worker = n_images // workers
-        print(
-            f"Setting workers to {workers} - {images_per_worker} - total images: {n_images}"
-        )
 
         # Getting 5 dim image TCZYX
         args = []
@@ -520,7 +504,6 @@ def channel_parallel_reading(
             else:
                 dask_array = concatenate([dask_array, res[res_idx][0]], axis=-3)
 
-            print(f"Slides: {res[res_idx][1]}")
 
     return dask_array
 
@@ -569,10 +552,8 @@ def parallel_read_chunked_stitched_multichannel_image(
 
     multichannels = []
     read_channels = {}
-    print(f"Channel in directory structure: {channel_paths}")
 
     for channel_idx in range(len(channel_paths)):
-        print(f"Reading images from {channel_paths[channel_idx]}")
         start_time = time.time()
         read_chunked_channel = channel_parallel_reading(
             directory_structure,
@@ -581,8 +562,6 @@ def parallel_read_chunked_stitched_multichannel_image(
             ensure_parallel=ensure_parallel,
         )
         end_time = time.time()
-
-        print(f"Time reading single channel image: {end_time - start_time}")
 
         # Padding to 4D if necessary
         ch_name = Path(channel_paths[channel_idx]).name

@@ -19,19 +19,28 @@ import os
 import time
 import uuid
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
 
 import aind_cloud_fusion.fusion as fusion
 import aind_cloud_fusion.io as io
 import dask.array as da
-import psutil
 import torch
 import yaml
 import zarr
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
-                                              Processing, ProcessName)
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
 
+from . import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
+from .utils import metadata_compat, utils
 from .zarr_writer.create_multiscales import compute_multiscale
 
 
@@ -66,19 +75,14 @@ def read_json_as_dict(filepath: str) -> dict:
     return dictionary
 
 
-def modify_xml_with_channel_names(
-    input_xml_path: str, modified_xml_path: str, channel_num: int
-):
+def modify_xml_with_channel_names(input_xml_path: str, modified_xml_path: str, channel_num: int):
     """
     Channel names are an xml convention.
     """
     tree = ET.parse(input_xml_path)
     root = tree.getroot()
     for item in (
-        root.find("SequenceDescription")
-        .find("ImageLoader")
-        .find("zgroups")
-        .findall("zgroup")
+        root.find("SequenceDescription").find("ImageLoader").find("zgroups").findall("zgroup")
     ):
         tile_name = item.find("path").text
         item.find("path").text = tile_name.replace(".zarr", f"_ch_{channel_num}.zarr")
@@ -133,32 +137,6 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
     return missing_inputs
 
 
-def get_code_ocean_cpu_limit():
-    """
-    Gets the Code Ocean capsule CPU limit
-
-    Returns
-    -------
-    int:
-        number of cores available for compute
-    """
-    # Checks for environmental variables
-    co_cpus = os.environ.get("CO_CPUS")
-    aws_batch_job_id = os.environ.get("AWS_BATCH_JOB_ID")
-
-    if co_cpus:
-        return co_cpus
-    if aws_batch_job_id:
-        return 1
-    with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as fp:
-        cfs_quota_us = int(fp.read())
-    with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us") as fp:
-        cfs_period_us = int(fp.read())
-    container_cpus = cfs_quota_us // cfs_period_us
-    # For physical machine, the `cfs_quota_us` could be '-1'
-    return psutil.cpu_count(logical=False) if container_cpus < 1 else container_cpus
-
-
 def get_resolution(acquisition_config) -> Tuple[int]:
     """
     Gets the image resolution from the acquisiton.json
@@ -176,62 +154,7 @@ def get_resolution(acquisition_config) -> Tuple[int]:
     """
     # Grabbing a tile with metadata from acquisition - we assume all dataset
     # was acquired with the same resolution
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-
-    return x, y, z
-
-
-def generate_processing(
-    data_processes: List[DataProcess],
-    dest_processing: str,
-    prefix: str,
-    processor_full_name: str,
-    pipeline_version: str,
-):
-    """
-    Generates data description for the output folder.
-
-    Parameters
-    ------------------------
-
-    data_processes: List[dict]
-        List with the processes aplied in the pipeline.
-
-    dest_processing: PathLike
-        Path where the processing file will be placed.
-
-    processor_full_name: str
-        Person in charged of running the pipeline
-        for this data asset
-
-    pipeline_version: str
-        Terastitcher pipeline version
-
-    """
-    # flake8: noqa: E501
-    processing_pipeline = PipelineProcess(
-        data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        note="Metadata for fusion step",
-    )
-
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
-        notes="This processing only contains metadata about fusion \
-            and needs to be compiled with other steps at the end",
-    )
-
-    processing.write_standard_file(output_directory=dest_processing, prefix=prefix)
+    return metadata_compat.get_voxel_resolution(acquisition_config)
 
 
 def execute_job():
@@ -249,9 +172,7 @@ def execute_job():
     missing_files = validate_capsule_inputs(required_input_elements)
 
     if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
+        raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
 
     acquisition_dict = read_json_as_dict(f"{data_folder}/acquisition.json")
     voxel_resolution = get_resolution(acquisition_dict)
@@ -264,7 +185,8 @@ def execute_job():
     smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
 
     if len(smartspim_channel):
-        start_time = time.time()
+        start_time = datetime.now(timezone.utc)
+        resource_monitor = utils.ResourceMonitor(interval_seconds=2.0).start()
 
         input_path = smartspim_channel[0]
         output_path = results_folder.joinpath(f"{input_path.name}.zarr")
@@ -313,7 +235,7 @@ def execute_job():
         store = zarr.DirectoryStore(output_path)
         zarr_group = zarr.open(store, mode="a")
 
-        n_workers = int(get_code_ocean_cpu_limit())
+        n_workers = int(utils.get_code_ocean_cpu_limit())
         n_levels = 4
         threads_per_worker = 1
 
@@ -332,34 +254,42 @@ def execute_job():
             n_levels=n_levels,
             threads_per_worker=threads_per_worker,
         )
-        end_time = time.time()
+        resource_monitor.stop()
+        end_time = datetime.now(timezone.utc)
 
         data_process = DataProcess(
-            name=ProcessName.IMAGE_TILE_FUSING,
-            software_version="0.0.2",
+            process_type=ProcessName.IMAGE_TILE_FUSING,
+            name="Image tile fusing",
+            stage=ProcessStage.PROCESSING,
+            code=Code(
+                url=__url__,
+                name=__title__,
+                version=__version__,
+            ),
+            experimenters=__maintainers__,
+            pipeline_name=__pipeline_name__,
             start_date_time=start_time,
             end_date_time=end_time,
-            input_location=str(xml_path),
-            output_location=str(output_path),
-            outputs={},
-            code_url="",
-            code_version="0.0.2",
-            parameters={
+            output_path=str(output_path),
+            output_parameters={
+                "input_location": str(xml_path),
                 "voxel_resolution": voxel_resolution,
                 "scale_factor": scale_factor,
                 "pyramid_levels": n_levels,
                 "n_workers": n_workers,
                 "threads_per_worker": threads_per_worker,
             },
+            resources=resource_monitor.to_resource_usage(cpu_cores=n_workers),
             notes=f"Fusing channel {dataset_name}",
         )
 
-        generate_processing(
+        utils.generate_processing(
             data_processes=[data_process],
             dest_processing=results_folder,
+            pipeline_name=__pipeline_name__,
+            pipeline_version=__pipeline_version__,
+            pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
             prefix=output_path.stem,
-            processor_full_name="Camilo Laiton",
-            pipeline_version="3.0.0",
         )
 
     else:

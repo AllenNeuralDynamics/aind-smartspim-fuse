@@ -12,18 +12,30 @@ This fusion worker expects:
 
 import json
 import logging
-import multiprocessing as mp
 import os
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import psutil
-import yaml
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
-                                              Processing, ProcessName)
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
+from aind_smartspim_fuse import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
+from aind_smartspim_fuse.utils import metadata_compat
+from aind_smartspim_fuse.utils.utils import ResourceMonitor, generate_processing
+from log_schema import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def read_json_as_dict(filepath: str) -> dict:
@@ -47,7 +59,7 @@ def read_json_as_dict(filepath: str) -> dict:
                 dictionary = json.load(json_file)
 
         except UnicodeDecodeError:
-            print("Error reading json with utf-8, trying different approach")
+            logger.warning("Error reading json with utf-8, trying decode with errors ignored")
             # This might lose data, verify with Jeff the json encoding
             with open(filepath, "rb") as json_file:
                 data = json_file.read()
@@ -67,7 +79,7 @@ def modify_xml_removing_nextflow_folder(
     root = tree.getroot()
     for item in root.find("SequenceDescription").find("ImageLoader").findall("zarr"):
         tile_name = item.text
-        print(tile_name)
+        logger.debug(f"Replacing zarr path in xml: {tile_name} -> {new_data_path}")
         item.text = new_data_path
 
     tree.write(modified_xml_path, encoding="utf-8", xml_declaration=True)
@@ -134,7 +146,7 @@ def get_code_ocean_cpu_limit():
     aws_batch_job_id = os.environ.get("AWS_BATCH_JOB_ID")
 
     if co_cpus:
-        return co_cpus
+        return int(co_cpus)
     if aws_batch_job_id:
         return 1
     with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as fp:
@@ -144,81 +156,6 @@ def get_code_ocean_cpu_limit():
     container_cpus = cfs_quota_us // cfs_period_us
     # For physical machine, the `cfs_quota_us` could be '-1'
     return psutil.cpu_count(logical=False) if container_cpus < 1 else container_cpus
-
-
-def get_resolution(acquisition_config) -> Tuple[int]:
-    """
-    Gets the image resolution from the acquisiton.json
-
-    Parameters
-    ----------
-    acquisition_config: dict
-        Dictionary with the acquisition metadata
-
-    Returns
-    -------
-    Tuple[float]
-        Tuple of floats with the image resolution
-        in XYZ order
-    """
-    # Grabbing a tile with metadata from acquisition - we assume all dataset
-    # was acquired with the same resolution
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-
-    return x, y, z
-
-
-def generate_processing(
-    data_processes: List[DataProcess],
-    dest_processing: str,
-    prefix: str,
-    processor_full_name: str,
-    pipeline_version: str,
-):
-    """
-    Generates data description for the output folder.
-
-    Parameters
-    ------------------------
-
-    data_processes: List[dict]
-        List with the processes aplied in the pipeline.
-
-    dest_processing: PathLike
-        Path where the processing file will be placed.
-
-    processor_full_name: str
-        Person in charged of running the pipeline
-        for this data asset
-
-    pipeline_version: str
-        Terastitcher pipeline version
-
-    """
-    # flake8: noqa: E501
-    processing_pipeline = PipelineProcess(
-        data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        note="Metadata for fusion step",
-    )
-
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
-        notes="This processing only contains metadata about fusion \
-            and needs to be compiled with other steps at the end",
-    )
-
-    processing.write_standard_file(output_directory=dest_processing, prefix=prefix)
 
 
 def execute_command_helper(command: str, print_command: bool = False) -> None:
@@ -244,9 +181,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
     if print_command:
         print(command)
 
-    popen = subprocess.Popen(
-        command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     for stdout_line in iter(popen.stdout.readline, ""):
         yield str(stdout_line).strip()
     popen.stdout.close()
@@ -255,9 +190,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
         raise subprocess.CalledProcessError(return_code, command)
 
 
-def execute_command(
-    command: str, logger: logging.Logger, verbose: Optional[bool] = False
-):
+def execute_command(command: str, logger: logging.Logger, verbose: Optional[bool] = False):
     """
     Execute a shell command with a given configuration.
 
@@ -284,182 +217,266 @@ def execute_command(
 
 
 def main():
-    data_folder = Path(os.path.abspath("../data"))
-    results_folder = Path(os.path.abspath("../results"))
-    scratch_folder = Path(os.path.abspath("../scratch"))
+    """Fuses the preprocessed SmartSPIM channel with BigStitcher"""
+    process_name = f"{__title__}"
+    setup_logging(
+        model={
+            "pipeline_name": __pipeline_name__,
+            "process_name": process_name,
+            "software_name": __title__,
+            "software_version": __version__,
+        }
+    )
 
-    BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
-    if not BIGSTITCHER_PATH:
-        raise ValueError("Please, set the BIGSTITCHER_HOME env value.")
+    stage_start_time = time.monotonic()
+    dataset_name = None
+    asset_name = None
+    channel_name = None
 
-    BIGSTITCHER_PATH = Path(BIGSTITCHER_PATH)
-    env = os.environ.copy()
-    print("Running from cwd:", os.getcwd())
-    print("BIGSTITCHER_PATH:", BIGSTITCHER_PATH)
-    print("Env JAVA_HOME:", os.environ.get("JAVA_HOME"))
+    try:
+        data_folder = Path(os.path.abspath("../data"))
+        results_folder = Path(os.path.abspath("../results"))
+        scratch_folder = Path(os.path.abspath("../scratch"))
 
-    if not BIGSTITCHER_PATH.exists():
-        raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
-
-    print(f"BigStitcher path: {BIGSTITCHER_PATH}")
-    print(f"Os environ: {os.environ}")
-    # It is assumed that these files
-    # will be in the data folder
-    required_input_elements = [
-        f"{data_folder}/bigstitcher.xml",
-    ]
-
-    missing_files = validate_capsule_inputs(required_input_elements)
-
-    if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
-
-    # Prep inputs
-    # Reference Path
-    # ../data/preprocessed_data/Ex_639_Em_667
-    print(list(data_folder.glob("*")))
-    base_path = data_folder.joinpath("preprocessed_data")
-    print("Base path: ", list(base_path.glob("*")))
-
-    smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
-
-    if len(smartspim_channel):
-        start_time = time.time()
-
-        input_path = smartspim_channel[0]
-        output_path = results_folder.joinpath(f"{input_path.name}.zarr")
-
-        xml_path = data_folder.joinpath("bigstitcher.xml")
-        modified_xml_path = scratch_folder.joinpath("bigstitcher.xml")
-        channel_num = 0
-        modify_xml_removing_nextflow_folder(
-            xml_path, modified_xml_path, str(input_path)
-        )
-
-        output_dir = str(results_folder.joinpath(output_path))
-
-        # Create output directory with multires folders
-        process1 = subprocess.run(
-            [
-                "bash",
-                f"./create-fusion-container",
-                "-x",
-                str(modified_xml_path),
-                "-o",
-                output_dir,
-                "-d",
-                "UINT16",
-                "-ds",
-                "1,1,1",
-                "-ds",
-                "2,2,2",
-                "-ds",
-                "4,4,4",
-                "-ds",
-                "8,8,8",
-                "-ds",
-                "16,16,16",
-                "-ds",
-                "32,32,32",
-                "-ds",
-                "64,64,64",
-                "-ds",
-                "128,128,128",
-                "-ds",
-                "256,256,256",
-                "--anisotropyFactor",
-                "1",
-            ],
-            check=True,
-            cwd=BIGSTITCHER_PATH,
-            env=env,
-        )
-
-        # Run fusion
-        process2 = subprocess.run(
-            [
-                "bash",
-                f"./affine-fusion",
-                "-o",
-                output_dir,
-                "-s",
-                "ZARR",
-                "--prefetch",
-            ],
-            check=True,
-            cwd=BIGSTITCHER_PATH,
-            env=env,
-        )
-
-        end_time = time.time()
-
-        data_process = DataProcess(
-            name=ProcessName.IMAGE_TILE_FUSING,
-            software_version="0.0.4",
-            start_date_time=start_time,
-            end_date_time=end_time,
-            input_location=str(xml_path),
-            output_location=str(output_path),
-            outputs={
-                "container_params": {
-                    "parameters": [
-                        "-x",
-                        str(modified_xml_path),
-                        "-o",
-                        str(output_dir),
-                        "-d",
-                        "UINT16",
-                        "-ds",
-                        "1,1,1",
-                        "-ds",
-                        "2,2,2",
-                        "-ds",
-                        "4,4,4",
-                        "-ds",
-                        "8,8,8",
-                        "-ds",
-                        "16,16,16",
-                        "-ds",
-                        "32,32,32",
-                        "-ds",
-                        "64,64,64",
-                        "-ds",
-                        "128,128,128",
-                        "-ds",
-                        "256,256,256",
-                        "--anisotropyFactor",
-                        "1",
-                    ]
-                },
-                "affine_fusion_params": {
-                    "parameters": [
-                        f"{BIGSTITCHER_PATH}/affine-fusion",
-                        "-o",
-                        str(output_dir),
-                        "-s",
-                        "ZARR",
-                        "--prefetch",
-                    ]
-                },
+        logger.info(
+            "BigStitcher fusion started",
+            extra={
+                "event_type": "stage_start",
+                "data_folder": str(data_folder),
+                "results_folder": str(results_folder),
             },
-            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
-            code_version="0.0.4",
-            parameters={},
-            notes="Fusing channel with BigStitcher",
         )
 
-        generate_processing(
-            data_processes=[data_process],
-            dest_processing=results_folder,
-            prefix=Path(output_path).stem,
-            processor_full_name="Camilo Laiton",
-            pipeline_version="3.0.0",
+        BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
+        if not BIGSTITCHER_PATH:
+            raise ValueError("Please, set the BIGSTITCHER_HOME env value.")
+
+        BIGSTITCHER_PATH = Path(BIGSTITCHER_PATH)
+        env = os.environ.copy()
+        logger.info(f"Running from cwd: {os.getcwd()}")
+        logger.info(f"BIGSTITCHER_PATH: {BIGSTITCHER_PATH}")
+        logger.info(f"Env JAVA_HOME: {os.environ.get('JAVA_HOME')}")
+
+        if not BIGSTITCHER_PATH.exists():
+            raise ValueError("Please, set the BIGSTITCHER_PATH env value.")
+
+        # It is assumed that these files
+        # will be in the data folder
+        required_input_elements = [
+            f"{data_folder}/bigstitcher.xml",
+        ]
+
+        missing_files = validate_capsule_inputs(required_input_elements)
+
+        if len(missing_files):
+            raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
+
+        # Prep inputs
+        # Reference Path
+        # ../data/preprocessed_data/Ex_639_Em_667
+        base_path = data_folder.joinpath("preprocessed_data")
+        logger.debug(f"Data in folder: {list(data_folder.glob('*'))}")
+        logger.debug(f"Base path: {list(base_path.glob('*'))}")
+
+        smartspim_channel = list(base_path.glob("Ex_*_Em_*"))
+
+        if len(smartspim_channel):
+            channel_name = smartspim_channel[0].name
+
+        # The dataset identity comes from the data_description when the
+        # asset is mounted; this read only feeds the log fields below
+        data_description_dict = read_json_as_dict(f"{data_folder}/data_description.json")
+        asset_name = data_description_dict.get("name")
+        dataset_name = metadata_compat.get_raw_dataset_name(asset_name)
+
+        logger.info(
+            f"Processing derived asset {asset_name} - channel {channel_name}",
+            extra={
+                "event_type": "dataset_resolved",
+                "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
+            },
         )
 
-    else:
-        print("No smartspim channels were provided!")
+        if len(smartspim_channel):
+            start_time = datetime.now(timezone.utc)
+            resource_monitor = ResourceMonitor(interval_seconds=30.0).start()
+
+            input_path = smartspim_channel[0]
+            output_path = results_folder.joinpath(f"{input_path.name}.zarr")
+
+            xml_path = data_folder.joinpath("bigstitcher.xml")
+            modified_xml_path = scratch_folder.joinpath("bigstitcher.xml")
+            modify_xml_removing_nextflow_folder(xml_path, modified_xml_path, str(input_path))
+
+            output_dir = str(results_folder.joinpath(output_path))
+
+            # Create output directory with multires folders
+            subprocess.run(
+                [
+                    "bash",
+                    "./create-fusion-container",
+                    "-x",
+                    str(modified_xml_path),
+                    "-o",
+                    output_dir,
+                    "-d",
+                    "UINT16",
+                    "-ds",
+                    "1,1,1",
+                    "-ds",
+                    "2,2,2",
+                    "-ds",
+                    "4,4,4",
+                    "-ds",
+                    "8,8,8",
+                    "-ds",
+                    "16,16,16",
+                    "-ds",
+                    "32,32,32",
+                    "-ds",
+                    "64,64,64",
+                    "-ds",
+                    "128,128,128",
+                    "-ds",
+                    "256,256,256",
+                    "--anisotropyFactor",
+                    "1",
+                ],
+                check=True,
+                cwd=BIGSTITCHER_PATH,
+                env=env,
+            )
+
+            # Run fusion
+            subprocess.run(
+                [
+                    "bash",
+                    "./affine-fusion",
+                    "-o",
+                    output_dir,
+                    "-s",
+                    "ZARR",
+                    "--prefetch",
+                ],
+                check=True,
+                cwd=BIGSTITCHER_PATH,
+                env=env,
+            )
+
+            resource_monitor.stop()
+            end_time = datetime.now(timezone.utc)
+
+            data_process = DataProcess(
+                process_type=ProcessName.IMAGE_TILE_FUSING,
+                name="Image tile fusing",
+                stage=ProcessStage.PROCESSING,
+                code=Code(
+                    url=__url__,
+                    name=__title__,
+                    version=__version__,
+                ),
+                experimenters=__maintainers__,
+                pipeline_name=__pipeline_name__,
+                start_date_time=start_time,
+                end_date_time=end_time,
+                output_path=str(output_path),
+                output_parameters={
+                    "input_location": str(xml_path),
+                    "container_params": {
+                        "parameters": [
+                            "-x",
+                            str(modified_xml_path),
+                            "-o",
+                            str(output_dir),
+                            "-d",
+                            "UINT16",
+                            "-ds",
+                            "1,1,1",
+                            "-ds",
+                            "2,2,2",
+                            "-ds",
+                            "4,4,4",
+                            "-ds",
+                            "8,8,8",
+                            "-ds",
+                            "16,16,16",
+                            "-ds",
+                            "32,32,32",
+                            "-ds",
+                            "64,64,64",
+                            "-ds",
+                            "128,128,128",
+                            "-ds",
+                            "256,256,256",
+                            "--anisotropyFactor",
+                            "1",
+                        ]
+                    },
+                    "affine_fusion_params": {
+                        "parameters": [
+                            f"{BIGSTITCHER_PATH}/affine-fusion",
+                            "-o",
+                            str(output_dir),
+                            "-s",
+                            "ZARR",
+                            "--prefetch",
+                        ]
+                    },
+                },
+                resources=resource_monitor.to_resource_usage(
+                    cpu_cores=int(get_code_ocean_cpu_limit())
+                ),
+                notes="Fusing channel with BigStitcher",
+            )
+
+            generate_processing(
+                data_processes=[data_process],
+                dest_processing=results_folder,
+                pipeline_name=__pipeline_name__,
+                pipeline_version=__pipeline_version__,
+                pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+                prefix=Path(output_path).stem,
+            )
+
+        else:
+            logger.warning(
+                "No smartspim channels were provided!",
+                extra={
+                    "dataset_name": dataset_name,
+                    "asset_name": asset_name,
+                    "status": "no_channels",
+                },
+            )
+
+        duration_seconds = round(time.monotonic() - stage_start_time, 3)
+        logger.info(
+            "BigStitcher fusion completed",
+            extra={
+                "event_type": "stage_complete",
+                "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
+                "duration_seconds": duration_seconds,
+            },
+        )
+
+    except Exception as e:
+        duration_seconds = round(time.monotonic() - stage_start_time, 3)
+        logger.error(
+            "BigStitcher fusion failed",
+            exc_info=True,
+            extra={
+                "event_type": "stage_failure",
+                "error": f"{type(e).__name__}: {e}",
+                "dataset_name": dataset_name,
+                "asset_name": asset_name,
+                "channel": channel_name,
+                "duration_seconds": duration_seconds,
+            },
+        )
+        raise
 
 
 if __name__ == "__main__":

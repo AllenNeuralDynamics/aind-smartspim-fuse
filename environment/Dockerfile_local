@@ -1,7 +1,11 @@
 # Use a public base image
 FROM ubuntu:22.04
 
-LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>"
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
+    org.opencontainers.image.title="Image Fusion" \
+    org.opencontainers.image.description="Container for image fusion." \
+    org.opencontainers.image.version="0.0.6" \
+    org.opencontainers.image.licenses="MIT"
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,6 +18,7 @@ ENV CLASSPATH="$BIGSTITCHER_HOME/target/*:$N5_AWS_FOLDER_HOME/target/*"
 # Install required packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
         wget \
         git \
         curl \
@@ -42,14 +47,39 @@ RUN wget -qO Miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-
 # Add conda to PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
-# Install additional conda packages with specific versions
-RUN conda install -y -c conda-forge \
-        ca-certificates=2024.7.4 \
-        openssl=3.3.1 \
+# Install additional conda packages with specific versions.
+# --override-channels restricts conda to only the channels listed here,
+# bypassing the default Anaconda channels (pkgs/main, pkgs/r) that require
+# Terms of Service acceptance in conda >= 24.3.
+RUN conda create -y \
+        --override-channels \
+        -c conda-forge \
+        -n py313 \
+        python=3.13 \
+        ca-certificates \
+        openssl \
     && conda clean -ya
 
+# Make Python 3.13 the default environment
+ENV PATH="/opt/conda/envs/py313/bin:/opt/conda/bin:$PATH"
+
+# Verify
+RUN python --version && \
+    python3 --version && \
+    which python && \
+    which python3 && \
+    python -m pip --version
+
 # Install Python packages
-RUN pip3 install --no-cache-dir aind-data-schema==1.4.0 psutil PyYAML
+RUN pip3 install --no-cache-dir \
+    aind-data-schema==2.8.0 \
+    "aind-data-schema-models>=5.7.1,<6" \
+    psutil==5.9.5 \
+    PyYAMLp==5.4.1 \
+    argschema==3.0.4 \
+    log-schema==0.2.10.dev1 \
+    matplotlib==3.11.0 \
+    xmltodict==1.0.4
 
 # Set up code-server
 WORKDIR /.code-server

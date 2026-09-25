@@ -79,11 +79,7 @@ def get_yaml(yaml_path: PathLike):
         Dictionary with the yaml configuration
     """
 
-    config = None
-    try:
-        with open(yaml_path, "r") as stream:
-            config = yaml.safe_load(stream)
-    except Exception as error:
-        raise error
+    with open(yaml_path, "r") as stream:
+        config = yaml.safe_load(stream)
 
     return config

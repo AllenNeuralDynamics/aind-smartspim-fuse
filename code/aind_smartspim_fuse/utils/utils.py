@@ -10,17 +10,24 @@ import platform
 import re
 import shutil
 import subprocess
+import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import psutil
 import xmltodict
-from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
-                                              Processing)
+from aind_data_schema.base import DataCoreModel
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import (
+    DataProcess,
+    Processing,
+    ResourceTimestamped,
+    ResourceUsage,
+)
+from aind_data_schema_models.units import MemoryUnit
 
 from .._shared.types import PathLike
 
@@ -106,7 +113,7 @@ def copy_file(input_filename: PathLike, output_filename: PathLike):
 
     except PermissionError:
         raise PermissionError(
-            f"Not able to copy the file. Please, check the permissions in the output path."
+            "Not able to copy the file. Please, check the permissions in the output path."
         )
 
 
@@ -158,9 +165,7 @@ def helper_additional_params_command(params: List[str]) -> str:
     return additional_params
 
 
-def helper_build_param_value_command(
-    params: dict, equal_con: Optional[bool] = True
-) -> str:
+def helper_build_param_value_command(params: dict, equal_con: Optional[bool] = True) -> str:
     """
     Helper function to build a command based on key:value pairs.
 
@@ -237,9 +242,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
     if print_command:
         print(command)
 
-    popen = subprocess.Popen(
-        command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     for stdout_line in iter(popen.stdout.readline, ""):
         yield str(stdout_line).strip()
     popen.stdout.close()
@@ -248,9 +251,7 @@ def execute_command_helper(command: str, print_command: bool = False) -> None:
         raise subprocess.CalledProcessError(return_code, command)
 
 
-def execute_command(
-    command: str, logger: logging.Logger, verbose: Optional[bool] = False
-):
+def execute_command(command: str, logger: logging.Logger, verbose: Optional[bool] = False):
     """
     Execute a shell command with a given configuration.
 
@@ -383,21 +384,15 @@ def generate_new_channel_alignment_xml(
 
     xml_dict = xmltodict.parse(xml_file)
 
-    new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = str(
-        channel_path
-    )
-    new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = str(
-        teras_mdata_bin
-    )
+    new_stacks_folder = xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = str(channel_path)
+    new_bin_folder = xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = str(teras_mdata_bin)
 
     xml_dict["TeraStitcher"]["stacks_dir"]["@value"] = new_stacks_folder
     xml_dict["TeraStitcher"]["mdata_bin"]["@value"] = new_bin_folder
 
     new_channel_name = re.search(channel_regex, str(channel_path)).group()
 
-    modified_mergexml_path = str(
-        metadata_folder.joinpath(f"xml_merging_{new_channel_name}.xml")
-    )
+    modified_mergexml_path = str(metadata_folder.joinpath(f"xml_merging_{new_channel_name}.xml"))
 
     data_to_write = xmltodict.unparse(xml_dict, pretty=True)
 
@@ -416,60 +411,7 @@ def generate_new_channel_alignment_xml(
     return modified_mergexml_path
 
 
-def copy_available_metadata(
-    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
-) -> List[PathLike]:
-    """
-    Copies all the valid metadata from the aind-data-schema
-    repository that exists in a given path.
-
-    Parameters
-    -----------
-    input_path: PathLike
-        Path where the metadata is located
-
-    output_path: PathLike
-        Path where we will copy the found
-        metadata
-
-    ignore_files: List[str]
-        List with the filenames of the metadata
-        that we need to ignore from the aind-data-schema
-
-    Returns
-    --------
-    List[PathLike]
-        List with the metadata files that
-        were copied
-    """
-
-    # We get all the valid filenames from the aind core model
-    metadata_to_find = [
-        cls.default_filename() for cls in AindCoreModel.__subclasses__()
-    ]
-
-    # Making sure the paths are pathlib objects
-    input_path = Path(input_path)
-    output_path = Path(output_path)
-
-    found_metadata = []
-
-    for metadata_filename in metadata_to_find:
-        metadata_filename = input_path.joinpath(metadata_filename)
-
-        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
-            found_metadata.append(metadata_filename)
-
-            # Copying file to output path
-            output_filename = output_path.joinpath(metadata_filename.name)
-            copy_file(metadata_filename, output_filename)
-
-    return found_metadata
-
-
-def find_smartspim_channels(
-    path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"
-):
+def find_smartspim_channels(path: PathLike, channel_regex: str = r"Ex_([0-9]*)_Em_([0-9]*)$"):
     """
     Find image channels of a dataset using a regular expression.
 
@@ -523,9 +465,7 @@ def copy_available_metadata(
     """
 
     # We get all the valid filenames from the aind core model
-    metadata_to_find = [
-        cls.default_filename() for cls in AindCoreModel.__subclasses__()
-    ]
+    metadata_to_find = [cls.default_filename() for cls in DataCoreModel.__subclasses__()]
 
     # Making sure the paths are pathlib objects
     input_path = Path(input_path)
@@ -577,7 +517,6 @@ def create_logger(output_log_path: PathLike) -> logging.Logger:
         force=True,
     )
 
-    logging.disable("DEBUG")
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
@@ -619,14 +558,12 @@ def create_fusion_folder_structure(
         create_folder(dest_dir=output_fused_path)
 
     if not intermediate_fused_folder.exists():
-        logging.info(
-            f"Path {intermediate_fused_folder} does not exists. We're creating one."
-        )
+        logging.info(f"Path {intermediate_fused_folder} does not exists. We're creating one.")
         create_folder(dest_dir=intermediate_fused_folder)
 
     output_fused_path = output_fused_path.joinpath(f"fusion_{channel_name}")
     fusion_folder = output_fused_path.joinpath("OMEZarr")
-    metadata_folder = output_fused_path.joinpath(f"metadata")
+    metadata_folder = output_fused_path.joinpath("metadata")
     teras_fusion_folder = intermediate_fused_folder.joinpath("teras_stitched")
 
     create_folder(fusion_folder)
@@ -636,11 +573,96 @@ def create_fusion_folder_structure(
     return fusion_folder, metadata_folder, teras_fusion_folder
 
 
+class ResourceMonitor:
+    """
+    Background sampler for CPU and RAM usage during a processing step.
+
+    Samples are collected on a separate thread at a fixed interval and can be
+    turned into an `aind_data_schema.core.processing.ResourceUsage` once the
+    step is finished.
+    """
+
+    def __init__(self, interval_seconds: Optional[float] = 1.0):
+        """
+        Initializes the ResourceMonitor.
+        Parameters
+        ----------
+        interval_seconds: Optional[float]
+            Time interval in seconds between resource usage samples. Default is 1 second.
+        """
+        self._interval = interval_seconds
+        self._cpu_usage = []
+        self._ram_usage = []
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self) -> None:
+        """Background thread method for sampling CPU and RAM usage."""
+
+        while not self._stop_event.is_set():
+            now = datetime.now(timezone.utc)
+            self._cpu_usage.append(
+                ResourceTimestamped(timestamp=now, usage=psutil.cpu_percent(interval=None))
+            )
+            self._ram_usage.append(
+                ResourceTimestamped(timestamp=now, usage=psutil.virtual_memory().percent)
+            )
+            self._stop_event.wait(self._interval)
+
+    def start(self) -> "ResourceMonitor":
+        """Starts the background sampling thread."""
+        psutil.cpu_percent(interval=None)  # discard first call, which always reads 0
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        """Stops the background sampling thread."""
+        self._stop_event.set()
+        self._thread.join(timeout=self._interval + 1)
+
+    def __enter__(self) -> "ResourceMonitor":
+        """Context manager entry point to start resource monitoring."""
+        return self.start()
+
+    def __exit__(self, *exc_info) -> None:
+        """Context manager exit point to stop resource monitoring."""
+        self.stop()
+
+    def to_resource_usage(self, cpu_cores: Optional[int] = None):
+        """
+        Builds an `aind_data_schema.core.processing.ResourceUsage` from the
+        samples collected so far, plus static host information.
+
+        Parameters
+        ----------
+        cpu_cores: Optional[int]
+            Number of CPU cores available to the process.
+
+        Returns
+        -------
+        ResourceUsage
+            Resource usage record for a `DataProcess`.
+        """
+
+        return ResourceUsage(
+            os=platform.system(),
+            architecture=platform.machine(),
+            cpu_cores=cpu_cores,
+            system_memory=round(psutil.virtual_memory().total / (1024**3), 2),
+            system_memory_unit=MemoryUnit.GB,
+            cpu_usage=self._cpu_usage,
+            ram_usage=self._ram_usage,
+            ram_unit=MemoryUnit.GB,
+        )
+
+
 def generate_processing(
     data_processes: List[DataProcess],
     dest_processing: PathLike,
-    processor_full_name: str,
+    pipeline_name: str,
     pipeline_version: str,
+    pipeline_url: str,
+    prefix: Optional[str] = None,
 ):
     """
     Generates data description for the output folder.
@@ -648,41 +670,46 @@ def generate_processing(
     Parameters
     ------------------------
 
-    data_processes: List[dict]
+    data_processes: List[DataProcess]
         List with the processes aplied in the pipeline.
 
     dest_processing: PathLike
         Path where the processing file will be placed.
 
-    processor_full_name: str
-        Person in charged of running the pipeline
-        for this data asset
+    pipeline_name: str
+        Name of the overall pipeline this processing
+        step belongs to.
 
     pipeline_version: str
-        Terastitcher pipeline version
+        Version of the overall pipeline.
+
+    pipeline_url: str
+        URL of the overall pipeline's repository.
+
+    prefix: Optional[str]
+        Prefix added to the processing filename.
 
     """
     # flake8: noqa: E501
-    processing_pipeline = PipelineProcess(
-        data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        note="Metadata for fusion step",
-    )
+    pipelines = [
+        Code(
+            url=pipeline_url,
+            name=pipeline_name,
+            version=pipeline_version,
+        )
+    ]
 
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
+    processing = Processing.create_with_sequential_process_graph(
+        data_processes=data_processes,
+        pipelines=pipelines,
         notes="This processing only contains metadata about fusion \
             and needs to be compiled with other steps at the end",
     )
 
-    processing.write_standard_file(output_directory=dest_processing)
+    processing.write_standard_file(output_directory=dest_processing, prefix=prefix)
 
 
-def save_dict_as_json(
-    filename: str, dictionary: dict, verbose: Optional[bool] = False
-) -> None:
+def save_dict_as_json(filename: str, dictionary: dict, verbose: Optional[bool] = False) -> None:
     """
     Saves a dictionary as a json file.
 
@@ -869,7 +896,7 @@ def get_code_ocean_cpu_limit():
     aws_batch_job_id = os.environ.get("AWS_BATCH_JOB_ID")
 
     if co_cpus:
-        return co_cpus
+        return int(co_cpus)
     if aws_batch_job_id:
         return 1
 
@@ -881,7 +908,7 @@ def get_code_ocean_cpu_limit():
 
         container_cpus = cfs_quota_us // cfs_period_us
 
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         container_cpus = 0
 
     # For physical machine, the `cfs_quota_us` could be '-1'
@@ -897,7 +924,7 @@ def print_system_information(logger: logging.Logger):
     logger: logging.Logger
         Logger object
     """
-    co_memory = int(os.environ.get("CO_MEMORY"))
+    co_memory = int(os.environ.get("CO_MEMORY", 0))
     # System info
     sep = "=" * 40
     logger.info(f"{sep} Code Ocean Information {sep}")
@@ -920,9 +947,7 @@ def print_system_information(logger: logging.Logger):
     logger.info(f"{sep} Boot Time {sep}")
     boot_time_timestamp = psutil.boot_time()
     bt = datetime.fromtimestamp(boot_time_timestamp)
-    logger.info(
-        f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
-    )
+    logger.info(f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}")
 
     # CPU info
     logger.info(f"{sep} CPU Info {sep}")

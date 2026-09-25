@@ -5,13 +5,21 @@ for a SmartSPIM dataset
 
 import logging
 import multiprocessing
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from aind_data_schema.core.processing import DataProcess, ProcessName
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage
 
-from . import __version__
+from . import (
+    __maintainers__,
+    __pipeline_name__,
+    __pipeline_version__,
+    __title__,
+    __url__,
+    __version__,
+)
 from ._shared.types import PathLike
 from .utils import utils
 from .zarr_writer import smartspim_zarr_writer as spim_zarr
@@ -58,9 +66,7 @@ def terastitcher_import_cmd(
 
     output_path = xml_output_path.joinpath(f"xml_import_{channel_name}.xml")
 
-    import_params["mdata_bin"] = str(
-        xml_output_path.joinpath(f"mdata_{channel_name}.bin")
-    )
+    import_params["mdata_bin"] = str(xml_output_path.joinpath(f"mdata_{channel_name}.bin"))
 
     output_folder = f"--projout={output_path}"
 
@@ -111,9 +117,7 @@ def build_parallel_command(params: dict, tool: PathLike) -> str:
 
     # Additional params provided in the configuration
     if len(cpu_params["additional_params"]):
-        additional_params = utils.helper_additional_params_command(
-            cpu_params["additional_params"]
-        )
+        additional_params = utils.helper_additional_params_command(cpu_params["additional_params"])
 
     hostfile = f"--hostfile {cpu_params['hostfile']}"
 
@@ -189,9 +193,7 @@ def terasticher_fusion(
     smartspim_config: dict,
     logger: logging.Logger,
     channel_regex: Optional[str] = r"Ex_([0-9]*)_Em_([0-9]*)$",
-    code_url: Optional[
-        str
-    ] = "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
+    code_url: Optional[str] = "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
 ):
     """
     This function fuses a SmartSPIM dataset.
@@ -250,9 +252,7 @@ def terasticher_fusion(
     # parastitcher_path = Path(smartspim_config["pyscripts_path"]).joinpath(
     #     "Parastitcher.py"
     # )
-    paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath(
-        "paraconverter.py"
-    )
+    paraconverter_path = Path(smartspim_config["pyscripts_path"]).joinpath("paraconverter.py")
 
     channel_path = data_folder.joinpath(channel_name)
 
@@ -272,26 +272,35 @@ def terasticher_fusion(
     logger.info(f"Executing TeraStitcher command: {teras_import_channel_cmd}")
 
     # Importing channel to generate binary file
-    import_start_time = datetime.now()
+    import_start_time = datetime.now(timezone.utc)
+    import_resource_monitor = utils.ResourceMonitor(interval_seconds=2.0).start()
     utils.execute_command(command=teras_import_channel_cmd, logger=logger, verbose=True)
-    import_end_time = datetime.now()
+    import_resource_monitor.stop()
+    import_end_time = datetime.now(timezone.utc)
 
     data_processes.append(
         DataProcess(
-            name=ProcessName.IMAGE_IMPORTING,
-            software_version="1.11.10",
+            process_type=ProcessName.IMAGE_IMPORTING,
+            name="Image importing",
+            stage=ProcessStage.PROCESSING,
+            code=Code(
+                url=code_url,
+                name="TeraStitcher",
+                version="1.11.10",
+            ),
+            experimenters=__maintainers__,
+            pipeline_name=__pipeline_name__,
             start_date_time=import_start_time,
             end_date_time=import_end_time,
-            input_location=str(channel_path),
-            output_location=str(metadata_folder),
-            outputs={
-                "output_file": str(
-                    metadata_folder.joinpath(f"xml_import_{channel_name}.xml")
-                )
+            output_path=str(metadata_folder),
+            output_parameters={
+                "input_location": str(channel_path),
+                "output_file": str(metadata_folder.joinpath(f"xml_import_{channel_name}.xml")),
+                "import_params": smartspim_config["import_data"],
             },
-            code_url=code_url,
-            code_version=__version__,
-            parameters=smartspim_config["import_data"],
+            resources=import_resource_monitor.to_resource_usage(
+                cpu_cores=utils.get_code_ocean_cpu_limit()
+            ),
             notes=f"TeraStitcher image import for channel {channel_name}",
         )
     )
@@ -339,9 +348,11 @@ def terasticher_fusion(
     logger.info(f"Executing TeraStitcher command: {teras_merge_channel_cmd}")
 
     # Merge channel with TeraStitcher
-    merge_start_time = datetime.now()
+    merge_start_time = datetime.now(timezone.utc)
+    merge_resource_monitor = utils.ResourceMonitor(interval_seconds=2.0).start()
     utils.execute_command(command=teras_merge_channel_cmd, logger=logger, verbose=True)
-    merge_end_time = datetime.now()
+    merge_resource_monitor.stop()
+    merge_end_time = datetime.now(timezone.utc)
 
     # Getting new top level folder after fusion
     teras_fusion_folder = [
@@ -350,16 +361,27 @@ def terasticher_fusion(
 
     data_processes.append(
         DataProcess(
-            name=ProcessName.IMAGE_TILE_FUSING,
-            software_version="1.11.10",
+            process_type=ProcessName.IMAGE_TILE_FUSING,
+            name="Image tile fusing",
+            stage=ProcessStage.PROCESSING,
+            code=Code(
+                url=code_url,
+                name="TeraStitcher",
+                version="1.11.10",
+            ),
+            experimenters=__maintainers__,
+            pipeline_name=__pipeline_name__,
             start_date_time=merge_start_time,
             end_date_time=merge_end_time,
-            input_location=str(channel_merge_xml_path),
-            output_location=str(metadata_folder),
-            outputs={"output_folder": str(teras_fusion_folder)},
-            code_url=code_url,
-            code_version=__version__,
-            parameters=terastitcher_merge_config,
+            output_path=str(metadata_folder),
+            output_parameters={
+                "input_location": str(channel_merge_xml_path),
+                "output_folder": str(teras_fusion_folder),
+                "merge_params": terastitcher_merge_config,
+            },
+            resources=merge_resource_monitor.to_resource_usage(
+                cpu_cores=utils.get_code_ocean_cpu_limit()
+            ),
             notes=f"TeraStitcher image fusion for channel {channel_name}",
         )
     )
@@ -412,7 +434,7 @@ def main(
     output_fused_path = Path(output_fused_path)
     intermediate_fused_folder = Path(intermediate_fused_folder)
 
-    if not output_fused_path.exists():
+    if not transforms_xml_path.exists():
         raise FileNotFoundError(f"XML path {transforms_xml_path} does not exist")
 
     # Looking for SmartSPIM channels on data folder
@@ -464,10 +486,10 @@ def main(
     profile_process.daemon = True
     profile_process.start()
 
-    logger.info(f"{'='*40} SmartSPIM Stitching {'='*40}")
+    logger.info(f"{'=' * 40} SmartSPIM Stitching {'=' * 40}")
     logger.info(f"Output folders - Stitch metadata: {metadata_folder}")
 
-    logger.info(f"{'='*40} SmartSPIM Fusion {'='*40}")
+    logger.info(f"{'=' * 40} SmartSPIM Fusion {'=' * 40}")
 
     logger.info(
         f"Output folders -> Fused image: {fusion_folder} -- Fusion metadata: {metadata_folder}"
@@ -495,6 +517,7 @@ def main(
     ]
     zarr_chunksize = [128, 128, 128]
 
+    file_convert_resource_monitor = utils.ResourceMonitor(interval_seconds=2.0).start()
     (
         file_convert_start_time,
         file_convert_end_time,
@@ -509,25 +532,33 @@ def main(
         n_lvls=smartspim_config["ome_zarr_params"]["pyramid_levels"],
         logger=logger,
     )
+    file_convert_resource_monitor.stop()
 
     data_processes.append(
         DataProcess(
-            name=ProcessName.FILE_FORMAT_CONVERSION,
-            software_version=__version__,
+            process_type=ProcessName.FILE_FORMAT_CONVERSION,
+            name="File format conversion",
+            stage=ProcessStage.PROCESSING,
+            code=Code(
+                url=__url__,
+                name=__title__,
+                version=__version__,
+            ),
+            experimenters=__maintainers__,
+            pipeline_name=__pipeline_name__,
             start_date_time=file_convert_start_time,
             end_date_time=file_convert_end_time,
-            input_location=str(terastitcher_fused_path),
-            output_location=str(fusion_folder),
-            outputs={
-                "output_file": str(fusion_folder.joinpath(f"{channel_name}.zarr"))
-            },
-            code_url="https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
-            code_version=__version__,
-            parameters={
+            output_path=str(fusion_folder),
+            output_parameters={
+                "input_location": str(terastitcher_fused_path),
+                "output_file": str(fusion_folder.joinpath(f"{channel_name}.zarr")),
                 "ome_zarr_params": smartspim_config["ome_zarr_params"],
                 "voxel_size": voxel_size,
                 "ome_zarr_chunksize": zarr_chunksize,
             },
+            resources=file_convert_resource_monitor.to_resource_usage(
+                cpu_cores=utils.get_code_ocean_cpu_limit()
+            ),
             notes=f"File format conversion from .tiff to OMEZarr for channel {channel_name}",
         )
     )
@@ -535,8 +566,9 @@ def main(
     utils.generate_processing(
         data_processes=data_processes,
         dest_processing=metadata_folder,
-        processor_full_name="Camilo Laiton",
-        pipeline_version="1.5.0",
+        pipeline_name=__pipeline_name__,
+        pipeline_version=__pipeline_version__,
+        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
     )
 
     # Getting tracked resources and plotting image
