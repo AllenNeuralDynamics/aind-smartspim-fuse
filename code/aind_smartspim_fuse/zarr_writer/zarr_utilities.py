@@ -359,7 +359,6 @@ def read_chunked_stitched_image_per_channel(
                         last_col = False
 
                 except ValueError:
-                    print("No valid image in ", slice_pos)
                     valid_image = False
 
                 if valid_image:
@@ -448,7 +447,6 @@ def channel_parallel_reading(
 
     cols = list(directory_structure.values())[0]
     n_images = len(list(list(cols.values())[0].values())[0])
-    #     print(f"n_images: {n_images}")
 
     channel_paths = list(directory_structure.keys())
     dask_array = None
@@ -463,11 +461,9 @@ def channel_parallel_reading(
             start_slice=0,
             end_slice=n_images,
         )[0]
-        print(f"No need for parallel reading... {dask_array}")
 
     else:
         images_per_worker = n_images // workers
-        print(f"Setting workers to {workers} - {images_per_worker} - total images: {n_images}")
 
         # Getting 5 dim image TCZYX
         args = []
@@ -508,7 +504,6 @@ def channel_parallel_reading(
             else:
                 dask_array = concatenate([dask_array, res[res_idx][0]], axis=-3)
 
-            print(f"Slides: {res[res_idx][1]}")
 
     return dask_array
 
@@ -557,10 +552,8 @@ def parallel_read_chunked_stitched_multichannel_image(
 
     multichannels = []
     read_channels = {}
-    print(f"Channel in directory structure: {channel_paths}")
 
     for channel_idx in range(len(channel_paths)):
-        print(f"Reading images from {channel_paths[channel_idx]}")
         start_time = time.time()
         read_chunked_channel = channel_parallel_reading(
             directory_structure,
@@ -569,8 +562,6 @@ def parallel_read_chunked_stitched_multichannel_image(
             ensure_parallel=ensure_parallel,
         )
         end_time = time.time()
-
-        print(f"Time reading single channel image: {end_time - start_time}")
 
         # Padding to 4D if necessary
         ch_name = Path(channel_paths[channel_idx]).name
