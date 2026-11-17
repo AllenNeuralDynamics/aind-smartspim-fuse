@@ -44,6 +44,11 @@ from .utils import metadata_compat, utils
 from .zarr_writer.create_multiscales import compute_multiscale
 
 
+# Seconds between CPU/RAM samples stored in processing.json for this step.
+# Keep large: every sample adds ~360 B to the file (target < 100 KB total).
+RESOURCE_MONITOR_INTERVAL_SECONDS = 300.0
+
+
 def read_json_as_dict(filepath: str) -> dict:
     """
     Reads a json as dictionary.
@@ -186,7 +191,7 @@ def execute_job():
 
     if len(smartspim_channel):
         start_time = datetime.now(timezone.utc)
-        resource_monitor = utils.ResourceMonitor(interval_seconds=2.0).start()
+        resource_monitor = utils.ResourceMonitor(interval_seconds=RESOURCE_MONITOR_INTERVAL_SECONDS).start()
 
         input_path = smartspim_channel[0]
         output_path = results_folder.joinpath(f"{input_path.name}.zarr")
