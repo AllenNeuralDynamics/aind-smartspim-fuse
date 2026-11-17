@@ -191,7 +191,9 @@ def execute_job():
 
     if len(smartspim_channel):
         start_time = datetime.now(timezone.utc)
-        resource_monitor = utils.ResourceMonitor(interval_seconds=RESOURCE_MONITOR_INTERVAL_SECONDS).start()
+        resource_monitor = utils.ResourceMonitor(
+            interval_seconds=RESOURCE_MONITOR_INTERVAL_SECONDS
+        ).start()
 
         input_path = smartspim_channel[0]
         output_path = results_folder.joinpath(f"{input_path.name}.zarr")
